@@ -5,7 +5,7 @@ const cron = require('node-cron');
 const Store = require('electron-store');
 const cronParser = require('cron-parser');
 
-// 强制获取正确的解析函数
+// 强制获取正确的解析函数111
 const parseCron = (expr) => {
   try {
     const trimmed = expr.trim();
