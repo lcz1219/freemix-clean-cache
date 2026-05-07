@@ -1,0 +1,38 @@
+{
+  "name": "cleancache",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "dev": "electron .",
+    "build": "electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.zwin03.cleancache",
+    "productName": "CleanCache",
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [
+        "dmg"
+      ],
+      "icon": "icon.icns",
+      "identity": null
+    },
+    "directories": {
+      "output": "dist"
+    }
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^26.8.1"
+  },
+  "dependencies": {
+    "cron-parser": "^5.5.0",
+    "electron-store": "^8.1.0",
+    "electron-updater": "^6.8.3",
+    "node-cron": "^3.0.3"
+  }
+}
