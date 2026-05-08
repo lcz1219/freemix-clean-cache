@@ -4,14 +4,17 @@ const fs = require('fs');
 const cron = require('node-cron');
 const Store = require('electron-store');
 const cronParser = require('cron-parser');
+const { exec } = require('child_process');
+const util = require('util');
+const execPromise = util.promisify(exec);
 
-// 强制获取正确的解析函数111
+// 强制获取正确的解析函数
 const parseCron = (expr) => {
   try {
     const trimmed = expr.trim();
     // 如果包含 ?，统一替换为 * 以兼容 node-cron
     const sanitized = trimmed.replace(/\?/g, '*');
-    
+
     const Parser = cronParser.CronExpressionParser || cronParser.default;
     if (Parser && typeof Parser.parse === 'function') {
       return Parser.parse(sanitized);
@@ -33,15 +36,17 @@ let cleanJob;
 // 默认设置
 const DEFAULT_SETTINGS = {
   autoClean: false,
-  intervalDays: 7, 
-  cronExpression: '5 * * * * ?', // 默认每天凌晨
+  intervalDays: 7,
+  cronExpression: '5 * * * * ?',
   language: 'zh',
   cachePath: path.join(app.getPath('home'), 'Library/Caches'),
   showInDock: true,
   theme: 'system',
   lastCleanTime: '-',
   totalCleanedSize: 0,
-  enableNotification: true // 默认开启通知
+  enableNotification: true,
+  cleanMode: 'file',
+  autoLaunch: false
 };
 
 function sendThemeStatus() {
@@ -76,7 +81,7 @@ function createWindow() {
   });
 
   mainWindow.loadFile('index.html');
-  
+
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     // 发送初始主题状态
@@ -100,33 +105,118 @@ function createWindow() {
     mainWindow = null;
   });
 }
+function getFormattedNow() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+async function getDirectorySize(dirPath) {
+  console.log(`Scanning size for: ${dirPath}`);
+  try {
+    // 使用 du -sk 统计，不加 -A 以获取磁盘实际占用空间（更接近 Finder）
+    const { stdout } = await execPromise(`du -sk "${dirPath}" 2>/dev/null || true`);
+    const match = stdout.trim().match(/^(\d+)/);
+    const sizeInKb = match ? parseInt(match[1]) : 0;
+
+    // Finder 通常使用 1000 作为单位换算（macOS 默认），而我们使用的是 1024
+    // 为了对齐 Finder 的视觉效果，我们可以稍微调整系数或直接返回字节
+    const totalSize = sizeInKb * 1024;
+    console.log(`Scan finished. Result: ${totalSize} bytes`);
+    return totalSize;
+  } catch (e) {
+    console.error('Fatal error in du command:', e.message);
+    return 0;
+  }
+}
+
+function updateAutoLaunch(enabled) {
+  if (app.isPackaged) {
+    app.setLoginItemSettings({
+      openAtLogin: enabled,
+      path: app.getPath('exe')
+    });
+  } else {
+    console.log("AutoLaunch setting ignored in dev mode.");
+  }
+}
+
+async function checkFullDiskAccess() {
+  // 在 macOS 上，Library/Safari 是受 TCC 保护的目录
+  // 如果没有“完全磁盘访问权限”，即使是当前用户也无法读取其中的文件
+  const testPath = path.join(app.getPath('home'), 'Library/Safari/Bookmarks.plist');
+  try {
+    await fs.promises.access(testPath, fs.constants.R_OK);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
 
 // 核心清理逻辑
-async function cleanCache(isManual = false) {
+async function FreemixCleanCache(isManual = false) {
   const cachePath = store.get('cachePath', DEFAULT_SETTINGS.cachePath);
   const intervalDays = store.get('intervalDays', DEFAULT_SETTINGS.intervalDays);
+  const cleanMode = store.get('cleanMode', DEFAULT_SETTINGS.cleanMode);
   const now = Date.now();
   const msInDay = 24 * 60 * 60 * 1000;
-  
+
   let cleanedCount = 0;
   let cleanedSize = 0;
 
   try {
+    console.log("!fs.existsSync(cachePath)", !fs.existsSync(cachePath));
+
     if (!fs.existsSync(cachePath)) return;
-    const files = await fs.promises.readdir(cachePath);
 
-    for (const file of files) {
-      const filePath = path.join(cachePath, file);
+    if (cleanMode === 'folder') {
       try {
-        const stats = await fs.promises.stat(filePath);
-        const diffDays = (now - stats.atimeMs) / msInDay;
+        const folderName = path.basename(cachePath);
+        const parentDir = path.dirname(cachePath);
+        const timestamp = getFormattedNow();
+        // 1. 在父级目录创建一个带标记的新文件夹，作为“垃圾箱容器”
+        const trashContainer = path.join(parentDir, `${folderName}_FreemixCleaned_${timestamp}`);
+        await fs.promises.mkdir(trashContainer, { recursive: true });
 
-        if (diffDays > intervalDays) {
-          cleanedSize += stats.size;
-          await shell.trashItem(filePath);
-          cleanedCount++;
+        // 2. 遍历原目录内容，将所有可移动的子项“剪切”到新文件夹中
+        const items = await fs.promises.readdir(cachePath);
+        for (const item of items) {
+          const oldItemPath = path.join(cachePath, item);
+          const newItemPath = path.join(trashContainer, item);
+          try {
+            // 尝试直接移动（重命名操作在同一磁盘分区内非常快且作为原子操作）
+            await fs.promises.rename(oldItemPath, newItemPath);
+          } catch (e) {
+            // 某些项目（如正在使用的 Socket 或隐藏的权限文件）可能无法移动，忽略它们
+            console.warn(`Skipping item: ${item} - might be in use or protected.`);
+          }
         }
-      } catch (err) {}
+
+        // 3. 将这个装满内容的“新文件夹”整体移入废纸篓
+        await shell.trashItem(trashContainer);
+
+        cleanedCount = 1;
+        console.log(`Successfully moved folder contents into container and trashed: ${trashContainer}`);
+      } catch (folderErr) {
+        console.error('Final folder strategy failed:', folderErr.message);
+        throw folderErr;
+      }
+    } else {
+      // 文件模式：原来的逻辑
+      const files = await fs.promises.readdir(cachePath);
+      for (const file of files) {
+        const filePath = path.join(cachePath, file);
+        try {
+          const stats = await fs.promises.stat(filePath);
+          const diffDays = (now - stats.atimeMs) / msInDay;
+
+          if (diffDays > intervalDays) {
+            cleanedSize += stats.size;
+            await shell.trashItem(filePath);
+            cleanedCount++;
+          }
+        } catch (err) {}
+      }
     }
 
     // 更新统计数据
@@ -140,17 +230,19 @@ async function cleanCache(isManual = false) {
       const isNotifyEnabled = store.get('enableNotification', DEFAULT_SETTINGS.enableNotification);
       if (isNotifyEnabled && Notification.isSupported()) {
         new Notification({
-          title: 'CleanCache 清理完成',
-          body: `本次清理了 ${cleanedCount} 个项目，节省了 ${(cleanedSize / 1024 / 1024).toFixed(2)} MB 空间。`,
+          title: 'FreemixCleanCache 清理完成',
+          body: `本次清理了 ${cleanedCount} 个项目，节省了 ${(cleanedSize / 1000 / 1000).toFixed(2)} MB 空间。`,
           silent: false
         }).show();
       }
 
       // 同步给 UI
       if (mainWindow) {
+        const currentSize = await getDirectorySize(cachePath);
         mainWindow.webContents.send('stats-updated', {
           lastCleanTime: cleanTime,
-          totalCleanedSize: formatSize(totalSize)
+          totalCleanedSize: formatSize(totalSize),
+          currentDirSize: formatSize(currentSize)
         });
       }
     }
@@ -161,7 +253,7 @@ async function cleanCache(isManual = false) {
 
 function formatSize(bytes) {
   if (bytes === 0) return '0 B';
-  const k = 1024;
+  const k = 1000;
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
@@ -175,10 +267,10 @@ function setupCron() {
     cleanJob.stop();
     cleanJob = null;
   }
-  
+
   const isEnabled = store.get('autoClean', DEFAULT_SETTINGS.autoClean);
   const cronExpr = store.get('cronExpression', DEFAULT_SETTINGS.cronExpression);
-  
+
   console.log(`AutoClean: ${isEnabled}, Expression: "${cronExpr}"`);
 
   if (isEnabled ) {
@@ -189,7 +281,7 @@ function setupCron() {
 
       cleanJob = cron.schedule(sanitizedExpr, () => {
         console.log('Running scheduled cache cleanup...');
-        cleanCache();
+        FreemixCleanCache();
       });
       console.log(`✅ Cron job successfully scheduled: ${sanitizedExpr}`);
     } catch (e) {
@@ -218,24 +310,24 @@ app.whenReady().then(() => {
 
 function setupTray() {
   // macOS Tray 建议使用 PNG 格式，且文件名以 Template 结尾可以自动适配系统深浅模式
-  const iconPath = fs.existsSync(path.join(__dirname, 'iconTemplate@2x.png')) 
-    ? path.join(__dirname, 'iconTemplate@2x.png') 
-    : path.join(__dirname, 'icon.icns');
+  const iconPath = fs.existsSync(path.join(__dirname, 'iconTemplate@2x.png'))
+      ? path.join(__dirname, 'iconTemplate@2x.png')
+      : path.join(__dirname, 'icon.icns');
 
   try {
     tray = new Tray(iconPath);
     const contextMenu = Menu.buildFromTemplate([
-      { label: 'Open CleanCache', click: () => mainWindow.show() },
+      { label: 'Open FreemixCleanCache', click: () => mainWindow.show() },
       { type: 'separator' },
       { label: 'Quit', click: () => {
           app.isQuiting = true;
           app.quit();
-        } 
+        }
       }
     ]);
-    tray.setToolTip('CleanCache Assistant');
+    tray.setToolTip('FreemixCleanCache Assistant');
     tray.setContextMenu(contextMenu);
-    
+
     tray.on('click', () => {
       mainWindow.show();
     });
@@ -270,17 +362,39 @@ function updateDockVisibility() {
   }
 }
 
-ipcMain.on('get-settings', (event) => {
+ipcMain.on('get-settings', async (event) => {
   const cronExpr = store.get('cronExpression', DEFAULT_SETTINGS.cronExpression);
   const themeSetting = store.get('theme', DEFAULT_SETTINGS.theme);
+  const cachePath = store.get('cachePath', DEFAULT_SETTINGS.cachePath);
   let nextRuns = [];
   try {
-    const interval = parseCron(cronExpr.trim());
+    const interval = parseCron(cronExpr);
     for (let i = 0; i < 5; i++) {
       nextRuns.push(formatDateTime(interval.next().toDate()));
     }
-  } catch (e) {
-    console.error('Cron initial parse error:', e.message);
+  } catch (e) {}
+
+  const currentSize = await getDirectorySize(cachePath);
+  const hasFullAccess = await checkFullDiskAccess();
+
+  // 强制权限检测逻辑：如果未获得完全磁盘访问权限
+  if (!hasFullAccess && cachePath.includes('Library/Caches')) {
+    setTimeout(() => {
+      if (mainWindow) {
+        dialog.showMessageBox(mainWindow, {
+          type: 'warning',
+          title: '权限申请',
+          message: '需要开启“完全磁盘访问权限”',
+          detail: '检测到 FreemixCleanCache 尚未获得完整权限，这将导致无法彻底清理 Safari、HomeKit 等深层缓存。请在弹出的设置中将 FreemixCleanCache 的开关设为【开启】状态。',
+          buttons: ['去开启', '暂不开启'],
+          defaultId: 0
+        }).then(res => {
+          if (res.response === 0) {
+            shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles');
+          }
+        });
+      }
+    }, 800);
   }
 
   event.reply('settings-data', {
@@ -289,13 +403,16 @@ ipcMain.on('get-settings', (event) => {
     intervalDays: store.get('intervalDays', DEFAULT_SETTINGS.intervalDays),
     cronExpression: cronExpr,
     language: store.get('language', DEFAULT_SETTINGS.language),
-    cachePath: store.get('cachePath', DEFAULT_SETTINGS.cachePath),
+    cachePath: cachePath,
     theme: themeSetting,
     isDark: nativeTheme.shouldUseDarkColors,
     nextRuns: nextRuns,
     lastCleanTime: store.get('lastCleanTime', '-'),
     totalCleanedSize: formatSize(store.get('totalCleanedSize', 0)),
-    enableNotification: store.get('enableNotification', DEFAULT_SETTINGS.enableNotification)
+    enableNotification: store.get('enableNotification', DEFAULT_SETTINGS.enableNotification),
+    cleanMode: store.get('cleanMode', DEFAULT_SETTINGS.cleanMode),
+    autoLaunch: store.get('autoLaunch', DEFAULT_SETTINGS.autoLaunch),
+    currentDirSize: formatSize(currentSize)
   });
 });
 
@@ -333,8 +450,28 @@ ipcMain.on('update-settings', (event, data) => {
   if (data.enableNotification !== undefined) {
     store.set('enableNotification', data.enableNotification);
   }
+  if (data.autoLaunch !== undefined) {
+    store.set('autoLaunch', data.autoLaunch);
+    updateAutoLaunch(data.autoLaunch);
+  }
+  if (data.cleanMode !== undefined) {
+    store.set('cleanMode', data.cleanMode);
+  }
   setupCron();
   event.reply('settings-updated', { success: true });
+});
+
+ipcMain.on('open-privacy-settings', () => {
+  // 跳转到 macOS 完全磁盘访问权限设置页面
+  shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles');
+});
+
+ipcMain.on('get-current-usage', async (event) => {
+  const cachePath = store.get('cachePath', DEFAULT_SETTINGS.cachePath);
+  const currentSize = await getDirectorySize(cachePath);
+  event.reply('current-usage-data', {
+    currentDirSize: formatSize(currentSize)
+  });
 });
 
 ipcMain.on('select-path', async (event) => {
@@ -348,6 +485,6 @@ ipcMain.on('select-path', async (event) => {
 });
 
 ipcMain.on('manual-clean', async (event) => {
-  await cleanCache();
+  await FreemixCleanCache();
   event.reply('clean-finished', { success: true });
 });

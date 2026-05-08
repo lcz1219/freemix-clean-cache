@@ -1,5 +1,5 @@
 {
-  "name": "cleancache",
+  "name": "FreemixCleanCache",
   "version": "1.0.0",
   "description": "",
   "main": "main.js",
@@ -8,8 +8,8 @@
     "build": "electron-builder --mac"
   },
   "build": {
-    "appId": "com.zwin03.cleancache",
-    "productName": "CleanCache",
+    "appId": "com.zwin03.FreemixCleanCache",
+    "productName": "FreemixCleanCache",
     "mac": {
       "category": "public.app-category.utilities",
       "target": [

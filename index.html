@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>CleanCache Assistant</title>
+    <title>FreemixCleanCache Assistant</title>
     <style>
         :root {
             --primary-color: #007AFF;
@@ -50,7 +50,7 @@
 
         /* macOS 风格 Segmented Control */
         .controls-column { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
-        
+
         .segmented-wrapper {
             background: var(--segment-bg);
             padding: 2px;
@@ -59,7 +59,7 @@
             position: relative;
             -webkit-app-region: no-drag;
         }
-        
+
         .segment-btn {
             padding: 4px 12px;
             font-size: 11px;
@@ -73,9 +73,9 @@
             min-width: 40px;
             text-align: center;
         }
-        
+
         .segment-btn.active { color: var(--text-main); }
-        
+
         .segment-glider {
             position: absolute;
             height: calc(100% - 4px);
@@ -87,7 +87,7 @@
         }
 
         /* 统计卡片 */
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px; }
         .stat-card {
             background: var(--card-bg);
             padding: 14px;
@@ -97,6 +97,15 @@
         }
         .stat-label { font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.5px; }
         .stat-value { font-size: 16px; font-weight: 700; color: var(--primary-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* 进度条样式 */
+        .storage-usage { margin-bottom: 20px; padding: 0 4px; }
+        .usage-info { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; font-weight: 500; align-items: center; }
+        .usage-info .btn-link { font-size: 10px; color: var(--primary-color); cursor: pointer; text-decoration: none; border: 1px solid var(--primary-color); padding: 1px 6px; border-radius: 4px; transition: all 0.2s; }
+        .usage-info .btn-link:hover { background: var(--primary-color); color: white; }
+        .progress-bar { height: 6px; background: var(--segment-bg); border-radius: 3px; overflow: hidden; position: relative; }
+        .progress-fill { height: 100%; background: var(--primary-color); border-radius: 3px; transition: width 0.5s ease-out; width: 0; }
+        .progress-fill.warning { background: var(--danger-color); }
 
         .setting-group {
             background: var(--card-bg);
@@ -137,7 +146,7 @@
             background: rgba(118, 118, 128, 0.08);
             padding: 4px 8px;
             border-radius: 6px;
-            max-width: 160px;
+            /* max-width: 160px; */
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -153,7 +162,7 @@
         .btn { width: 100%; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
         .btn-primary { background: var(--primary-color); color: white; }
         .btn-primary:active { opacity: 0.8; transform: scale(0.98); }
-        
+
         .cron-preview { padding: 10px 16px; background: rgba(52, 199, 89, 0.08); font-size: 11px; color: var(--text-secondary); border-top: 1px solid var(--border-color); }
         .cron-item { margin-top: 3px; color: var(--success-color); font-weight: 500; font-family: -apple-system, sans-serif; }
 
@@ -164,322 +173,438 @@
     </style>
 </head>
 <body>
-    <div class="titlebar"></div>
-    <div class="container">
-        <header>
-            <h1 id="title">CleanCache</h1>
-            <div class="controls-column">
-                <!-- 语言切换 -->
-                <div class="segmented-wrapper" id="langSegment">
-                    <div class="segment-glider" id="langGlider"></div>
-                    <div class="segment-btn" data-value="zh">中文</div>
-                    <div class="segment-btn" data-value="en">EN</div>
-                </div>
-                <!-- 主题切换 -->
-                <div class="segmented-wrapper" id="themeSegment">
-                    <div class="segment-glider" id="themeGlider"></div>
-                    <div class="segment-btn" id="system" data-value="system">Auto</div>
-                    <div class="segment-btn" id="light" data-value="light">Light</div>
-                    <div class="segment-btn" id="dark" data-value="dark">Dark</div>
-                </div>
+<div class="titlebar"></div>
+<div class="container">
+    <header>
+        <h1 id="title">FreemixCleanCache</h1>
+        <div class="controls-column">
+            <!-- 语言切换 -->
+            <div class="segmented-wrapper" id="langSegment">
+                <div class="segment-glider" id="langGlider"></div>
+                <div class="segment-btn" data-value="zh">中文</div>
+                <div class="segment-btn" data-value="en">EN</div>
             </div>
-        </header>
-
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-label" id="labelLastClean">上次清理</div>
-                <div class="stat-value" id="valLastClean">-</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label" id="labelTotalSaved">累计节省</div>
-                <div class="stat-value" id="valTotalSaved">0 B</div>
+            <!-- 主题切换 -->
+            <div class="segmented-wrapper" id="themeSegment">
+                <div class="segment-glider" id="themeGlider"></div>
+                <div class="segment-btn" id="system" data-value="system">Auto</div>
+                <div class="segment-btn" id="light" data-value="light">Light</div>
+                <div class="segment-btn" id="dark" data-value="dark">Dark</div>
             </div>
         </div>
+    </header>
 
-        <div class="setting-group">
-            <div class="setting-item">
-                <div class="setting-info">
-                    <div class="setting-title" id="labelAutoClean">自动清理</div>
-                    <div class="setting-desc" id="subAutoClean">后台按计划静默执行</div>
-                </div>
-                <div class="setting-control">
-                    <label class="switch">
-                        <input type="checkbox" id="autoCleanToggle">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-            </div>
-
-            <div class="setting-item">
-                <div class="setting-info">
-                    <div class="setting-title" id="labelNotify">清理通知</div>
-                    <div class="setting-desc" id="subNotify">任务完成时发送通知横幅</div>
-                </div>
-                <div class="setting-control">
-                    <label class="switch">
-                        <input type="checkbox" id="notifyToggle">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-            </div>
-            
-            <div class="setting-item">
-                <div class="setting-info">
-                    <div class="setting-title" id="labelShowInDock">程序坞图标</div>
-                    <div class="setting-desc" id="subShowInDock">在 Dock 栏显示应用</div>
-                </div>
-                <div class="setting-control">
-                    <label class="switch">
-                        <input type="checkbox" id="showInDockToggle">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-            </div>
-
-            <div class="setting-item">
-                <div class="setting-info">
-                    <div class="setting-title" id="labelInterval">清理阈值 (天)</div>
-                    <div class="setting-desc" id="subInterval">超过此天数未访问</div>
-                </div>
-                <div class="setting-control">
-                    <input type="number" id="intervalDays" min="1" max="365" style="width: 50px;">
-                </div>
-            </div>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label" id="labelLastClean">上次清理</div>
+            <div class="stat-value" id="valLastClean">-</div>
         </div>
-
-        <div class="setting-group">
-            <div class="setting-item">
-                <div class="setting-info">
-                    <div class="setting-title" id="labelPath">扫描目录</div>
-                    <div class="path-display" id="pathDisplay"></div>
-                </div>
-                <div class="setting-control">
-                    <button style="background:none; border:none; color:var(--primary-color); font-size:12px; cursor:pointer; font-weight:600;" id="changePathBtn">修改</button>
-                </div>
-            </div>
+        <div class="stat-card">
+            <div class="stat-label" id="labelTotalSaved">累计节省</div>
+            <div class="stat-value" id="valTotalSaved">0 B</div>
         </div>
-
-        <div class="setting-group">
-            <div class="setting-item">
-                <div class="setting-info">
-                    <div class="setting-title" id="labelCron">任务频率</div>
-                    <div class="setting-desc" id="cronHint">输入 Cron 或快捷选择</div>
-                </div>
-                <div class="setting-control">
-                    <select id="cronHelper" style="width: 85px; margin-right: 5px;">
-                        <option value="0 0 * * *" id="optEveryMidnight">每天凌晨</option>
-                        <option value="0 12 * * *" id="optEveryNoon">每天中午</option>
-                        <option value="0 0 * * 1" id="optEveryMonday">每周一</option>
-                    </select>
-                    <input type="text" id="cronExpression" style="width: 65px;" placeholder="0 0 * * *">
-                </div>
-            </div>
-            <div class="cron-preview" id="nextRunsBox" style="display: none;">
-                <div id="titleNextRuns" style="margin-bottom: 4px; font-weight: 600;">预定时间：</div>
-                <div id="nextRunsList"></div>
-            </div>
-        </div>
-
-        <button class="btn btn-primary" id="cleanNowBtn">立即开始深度清理</button>
-
-        <div class="status-text" id="statusMsg">系统就绪</div>
     </div>
 
-    <script>
-        const { ipcRenderer } = require('electron');
+    <!-- 空间占用进度条 -->
+    <div class="storage-usage">
+        <div class="usage-info">
+            <div>
+                <span id="labelCurrentUsage">当前目录占用</span>
+                <span id="valCurrentUsage">0 B</span>
+            </div>
+            <div id="btnPrivacy" style="display: none;"></div>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="usageProgress"></div>
+        </div>
+    </div>
 
-        const i18n = {
-            zh: {
-                title: 'CleanCache',
-                labelAutoClean: '自动清理', subAutoClean: '后台按计划静默执行',
-                labelNotify: '清理通知', subNotify: '任务完成时发送通知横幅',
-                labelShowInDock: '程序坞图标', subShowInDock: '在 Dock 栏显示应用',
-                labelInterval: '清理阈值 (天)', subInterval: '超过此天数未访问',
-                labelPath: '扫描目录', changePath: '修改',
-                labelCron: '任务频率', cronHint: '输入 Cron 或快捷选择',
-                labelLastClean: '上次清理', labelTotalSaved: '累计节省',
-                optEveryMidnight: '每天凌晨', optEveryNoon: '每天中午', optEveryMonday: '每周一',
-                titleNextRuns: '下次预定时间：',
-                cleanNowBtn: '立即开始深度清理',
-                statusReady: '系统就绪', statusSaving: '正在同步...', statusSaved: '设置已自动保存', statusCleaning: '深度扫描中...', statusFinished: '清理完成',
-                cronInvalid: '表达式非法',
-                system:"系统",
-                dark:"深色",
-                light:"浅色"
-            },
-            en: {
-                title: 'CleanCache',
-                labelAutoClean: 'Auto Clean', subAutoClean: 'Background tasks enabled',
-                labelNotify: 'Notifications', subNotify: 'Show banner when finished',
-                labelShowInDock: 'Dock Icon', subShowInDock: 'Show icon in macOS Dock',
-                labelInterval: 'Threshold', subInterval: 'Unaccessed duration',
-                labelPath: 'Target Folder', changePath: 'Change',
-                labelCron: 'Schedule', cronHint: 'Custom Cron or preset',
-                labelLastClean: 'Last Clean', labelTotalSaved: 'Total Saved',
-                optEveryMidnight: 'Midnight', optEveryNoon: 'Noon', optEveryMonday: 'Mondays',
-                titleNextRuns: 'Next Schedule:',
-                cleanNowBtn: 'Clean Now',
-                statusReady: 'Ready', statusSaving: 'Syncing...', statusSaved: 'Auto-saved', statusCleaning: 'Scanning...', statusFinished: 'Done',
-                cronInvalid: 'Invalid Cron',
-                system:"system",
-                dark:"dark",
-                light:"light"
-            }
-        };
+    <div class="setting-group">
+        <div class="setting-item">
+            <div class="setting-info">
+                <div class="setting-title" id="labelAutoClean">自动清理</div>
+                <div class="setting-desc" id="subAutoClean">后台按计划静默执行</div>
+            </div>
+            <div class="setting-control">
+                <label class="switch">
+                    <input type="checkbox" id="autoCleanToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
 
-        const elements = {
-            title: document.getElementById('title'), 
-            labelAutoClean: document.getElementById('labelAutoClean'), subAutoClean: document.getElementById('subAutoClean'),
-            labelNotify: document.getElementById('labelNotify'), subNotify: document.getElementById('subNotify'),
-            labelShowInDock: document.getElementById('labelShowInDock'), subShowInDock: document.getElementById('subShowInDock'),
-            labelInterval: document.getElementById('labelInterval'), subInterval: document.getElementById('subInterval'),
-            labelPath: document.getElementById('labelPath'), changePathBtn: document.getElementById('changePathBtn'),
-            labelCron: document.getElementById('labelCron'), cronHint: document.getElementById('cronHint'),
-            labelLastClean: document.getElementById('labelLastClean'), labelTotalSaved: document.getElementById('labelTotalSaved'),
-            valLastClean: document.getElementById('valLastClean'), valTotalSaved: document.getElementById('valTotalSaved'),
-            titleNextRuns: document.getElementById('titleNextRuns'),
-            cleanNowBtn: document.getElementById('cleanNowBtn'), statusMsg: document.getElementById('statusMsg'),
-            autoCleanToggle: document.getElementById('autoCleanToggle'),
-            notifyToggle: document.getElementById('notifyToggle'),
-            showInDockToggle: document.getElementById('showInDockToggle'),
-            intervalDaysInput: document.getElementById('intervalDays'), cronExpressionInput: document.getElementById('cronExpression'),
-            pathDisplay: document.getElementById('pathDisplay'), cronHelper: document.getElementById('cronHelper'),
-            nextRunsBox: document.getElementById('nextRunsBox'), nextRunsList: document.getElementById('nextRunsList'),
-            system: document.getElementById('system'), dark: document.getElementById('dark'),
-            light: document.getElementById('light')
-        };
+        <div class="setting-item">
+            <div class="setting-info">
+                <div class="setting-title" id="labelCleanMode">清理模式</div>
+                <div class="setting-desc" id="subCleanMode">选择清理文件还是删除目录</div>
+            </div>
+            <div class="setting-control">
+                <div class="segmented-wrapper" id="cleanModeSegment">
+                    <div class="segment-glider" id="cleanModeGlider"></div>
+                    <div class="segment-btn" data-value="file" id="modeFile">文件级</div>
+                    <div class="segment-btn" data-value="folder" id="modeFolder">文件夹</div>
+                </div>
+            </div>
+        </div>
 
-        let currentLang = 'zh';
-        let currentTheme = 'system';
-        let isInitializing = true;
+        <div class="setting-item">
+            <div class="setting-info">
+                <div class="setting-title" id="labelAutoLaunch">开机自启动</div>
+                <div class="setting-desc" id="subAutoLaunch">登录 macOS 时自动运行应用</div>
+            </div>
+            <div class="setting-control">
+                <label class="switch">
+                    <input type="checkbox" id="autoLaunchToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
 
-        function updateLanguage(lang) {
-            currentLang = lang;
-            const t = i18n[lang];
-            Object.keys(t).forEach(key => { if (elements[key]) elements[key].innerText = t[key]; });
-            updateGlider('langSegment', 'langGlider', lang);
+        <div class="setting-item">
+            <div class="setting-info">
+                <div class="setting-title" id="labelNotify">清理通知</div>
+                <div class="setting-desc" id="subNotify">任务完成时发送通知横幅</div>
+            </div>
+            <div class="setting-control">
+                <label class="switch">
+                    <input type="checkbox" id="notifyToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="setting-item">
+            <div class="setting-info">
+                <div class="setting-title" id="labelShowInDock">程序坞图标</div>
+                <div class="setting-desc" id="subShowInDock">在 Dock 栏显示应用</div>
+            </div>
+            <div class="setting-control">
+                <label class="switch">
+                    <input type="checkbox" id="showInDockToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="setting-item" id="intervalRow">
+            <div class="setting-info">
+                <div class="setting-title" id="labelInterval">清理阈值 (天)</div>
+                <div class="setting-desc" id="subInterval">超过此天数未访问</div>
+            </div>
+            <div class="setting-control">
+                <input type="number" id="intervalDays" min="1" max="365" style="width: 50px;">
+            </div>
+        </div>
+    </div>
+
+    <div class="setting-group">
+        <div class="setting-item">
+            <div class="setting-info">
+                <div class="setting-title" id="labelPath">扫描目录</div>
+                <div class="path-display" id="pathDisplay"></div>
+            </div>
+            <div class="setting-control">
+                <button style="background:none; border:none; color:var(--primary-color); font-size:12px; cursor:pointer; font-weight:600;" id="changePathBtn">修改</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="setting-group">
+        <div class="setting-item">
+            <div class="setting-info">
+                <div class="setting-title" id="labelCron">任务频率</div>
+                <div class="setting-desc" id="cronHint">输入 Cron 或快捷选择</div>
+            </div>
+            <div class="setting-control">
+                <select id="cronHelper" style=" margin-right: 5px;">
+                    <option value="0 0 * * *" id="optEveryMidnight">每天凌晨</option>
+                    <option value="0 12 * * *" id="optEveryNoon">每天中午</option>
+                    <option value="0 0 * * 1" id="optEveryMonday">每周一</option>
+                    <option value="0 0 0/1 * * ?" id="optEveryMonday">每隔一小时</option>
+                    <option value="0 0/30 * * * ?" id="optEveryMonday">每隔半小时</option>
+                </select>
+                <input type="text" id="cronExpression" style="width: 65px;" placeholder="0 0 * * *">
+            </div>
+        </div>
+        <div class="cron-preview" id="nextRunsBox" style="display: none;">
+            <div id="titleNextRuns" style="margin-bottom: 4px; font-weight: 600;">预定时间：</div>
+            <div id="nextRunsList"></div>
+        </div>
+    </div>
+
+    <button class="btn btn-primary" id="cleanNowBtn">立即开始深度清理</button>
+
+    <div class="status-text" id="statusMsg">系统就绪</div>
+</div>
+
+<script>
+    const { ipcRenderer } = require('electron');
+
+    const i18n = {
+        zh: {
+            title: 'FreemixCleanCache',
+            labelAutoClean: '自动清理', subAutoClean: '后台按计划静默执行',
+            labelNotify: '清理通知', subNotify: '任务完成时发送通知横幅',
+            labelShowInDock: '程序坞图标', subShowInDock: '在 Dock 栏显示应用',
+            labelInterval: '清理阈值 (天)', subInterval: '超过此天数未访问',
+            labelPath: '扫描目录', changePath: '修改',
+            labelCron: '任务频率', cronHint: '输入 Cron 或快捷选择',
+            labelLastClean: '上次清理', labelTotalSaved: '累计节省',
+            labelCleanMode: '清理模式', subCleanMode: '选择清理文件还是删除目录',
+            labelAutoLaunch: '开机自启动', subAutoLaunch: '登录 macOS 时自动运行应用',
+            labelCurrentUsage: '当前目录占用',
+            // labelPrivacy: '提升准确度',
+            privacyHint: '如果发现数值与 Finder 不符，请在系统设置中为 FreemixCleanCache 开启“完全磁盘访问权限”。',
+            modeFile: '文件级', modeFolder: '文件夹',
+            optEveryMidnight: '每天凌晨', optEveryNoon: '每天中午', optEveryMonday: '每周一',
+            titleNextRuns: '下次预定时间：',
+            cleanNowBtn: '立即开始深度清理',
+            statusReady: '系统就绪', statusSaving: '正在同步...', statusSaved: '设置已自动保存', statusCleaning: '深度扫描中...', statusFinished: '清理完成',
+            cronInvalid: '表达式非法',
+            system:"系统",
+            dark:"深色",
+            light:"浅色"
+        },
+        en: {
+            title: 'FreemixCleanCache',
+            labelAutoClean: 'Auto Clean', subAutoClean: 'Background tasks enabled',
+            labelNotify: 'Notifications', subNotify: 'Show banner when finished',
+            labelShowInDock: 'Dock Icon', subShowInDock: 'Show icon in macOS Dock',
+            labelInterval: 'Threshold', subInterval: 'Unaccessed duration',
+            labelPath: 'Target Folder', changePath: 'Change',
+            labelCron: 'Schedule', cronHint: 'Custom Cron or preset',
+            labelLastClean: 'Last Clean', labelTotalSaved: 'Total Saved',
+            labelCleanMode: 'Clean Mode', subCleanMode: 'File-level vs Entire Folder',
+            labelAutoLaunch: 'Auto Launch', subAutoLaunch: 'Start app at login',
+            labelCurrentUsage: 'Current Usage',
+            // labelPrivacy: 'Improve Accuracy',
+            privacyHint: 'If the value differs from Finder, please enable "Full Disk Access" for FreemixCleanCache in System Settings.',
+            modeFile: 'Files', modeFolder: 'Folder',
+            optEveryMidnight: 'Midnight', optEveryNoon: 'Noon', optEveryMonday: 'Mondays',
+            titleNextRuns: 'Next Schedule:',
+            cleanNowBtn: 'Clean Now',
+            statusReady: 'Ready', statusSaving: 'Syncing...', statusSaved: 'Auto-saved', statusCleaning: 'Scanning...', statusFinished: 'Done',
+            cronInvalid: 'Invalid Cron',
+            system:"system",
+            dark:"dark",
+            light:"light"
         }
+    };
 
-        function updateGlider(wrapperId, gliderId, value) {
-            const wrapper = document.getElementById(wrapperId);
-            const glider = document.getElementById(gliderId);
-            const activeBtn = wrapper.querySelector(`[data-value="${value}"]`);
-            if (activeBtn) {
-                glider.style.width = activeBtn.offsetWidth + 'px';
-                glider.style.transform = `translateX(${activeBtn.offsetLeft - 2}px)`;
-                wrapper.querySelectorAll('.segment-btn').forEach(btn => btn.classList.remove('active'));
-                activeBtn.classList.add('active');
-            }
+    const elements = {
+        title: document.getElementById('title'),
+        labelAutoClean: document.getElementById('labelAutoClean'), subAutoClean: document.getElementById('subAutoClean'),
+        labelNotify: document.getElementById('labelNotify'), subNotify: document.getElementById('subNotify'),
+        labelShowInDock: document.getElementById('labelShowInDock'), subShowInDock: document.getElementById('subShowInDock'),
+        labelInterval: document.getElementById('labelInterval'), subInterval: document.getElementById('subInterval'),
+        labelPath: document.getElementById('labelPath'), changePathBtn: document.getElementById('changePathBtn'),
+        labelCron: document.getElementById('labelCron'), cronHint: document.getElementById('cronHint'),
+        labelLastClean: document.getElementById('labelLastClean'), labelTotalSaved: document.getElementById('labelTotalSaved'),
+        valLastClean: document.getElementById('valLastClean'), valTotalSaved: document.getElementById('valTotalSaved'),
+        labelCleanMode: document.getElementById('labelCleanMode'), subCleanMode: document.getElementById('subCleanMode'),
+        labelAutoLaunch: document.getElementById('labelAutoLaunch'), subAutoLaunch: document.getElementById('subAutoLaunch'),
+        labelCurrentUsage: document.getElementById('labelCurrentUsage'),
+        valCurrentUsage: document.getElementById('valCurrentUsage'),
+        usageProgress: document.getElementById('usageProgress'),
+        btnPrivacy: document.getElementById('btnPrivacy'),
+        modeFile: document.getElementById('modeFile'), modeFolder: document.getElementById('modeFolder'),
+        titleNextRuns: document.getElementById('titleNextRuns'),
+        cleanNowBtn: document.getElementById('cleanNowBtn'), statusMsg: document.getElementById('statusMsg'),
+        autoCleanToggle: document.getElementById('autoCleanToggle'),
+        notifyToggle: document.getElementById('notifyToggle'),
+        autoLaunchToggle: document.getElementById('autoLaunchToggle'),
+        showInDockToggle: document.getElementById('showInDockToggle'),
+        intervalDaysInput: document.getElementById('intervalDays'), cronExpressionInput: document.getElementById('cronExpression'),
+        pathDisplay: document.getElementById('pathDisplay'), cronHelper: document.getElementById('cronHelper'),
+        nextRunsBox: document.getElementById('nextRunsBox'), nextRunsList: document.getElementById('nextRunsList'),
+        system: document.getElementById('system'), dark: document.getElementById('dark'),
+        light: document.getElementById('light'),
+        intervalRow: document.getElementById('intervalRow')
+    };
+
+    let currentLang = 'zh';
+    let currentTheme = 'system';
+    let currentCleanMode = 'file';
+    let isInitializing = true;
+
+    function updateLanguage(lang) {
+        currentLang = lang;
+        const t = i18n[lang];
+        Object.keys(t).forEach(key => { if (elements[key]) elements[key].innerText = t[key]; });
+        updateGlider('langSegment', 'langGlider', lang);
+    }
+
+    function updateGlider(wrapperId, gliderId, value) {
+        const wrapper = document.getElementById(wrapperId);
+        const glider = document.getElementById(gliderId);
+        const activeBtn = wrapper.querySelector(`[data-value="${value}"]`);
+        if (activeBtn) {
+            glider.style.width = activeBtn.offsetWidth + 'px';
+            glider.style.transform = `translateX(${activeBtn.offsetLeft - 2}px)`;
+            wrapper.querySelectorAll('.segment-btn').forEach(btn => btn.classList.remove('active'));
+            activeBtn.classList.add('active');
         }
+    }
 
-        function applyTheme(setting, isDark) {
-            currentTheme = setting;
-            if (setting === 'dark' || (setting === 'system' && isDark)) {
-                document.body.setAttribute('data-theme', 'dark');
-            } else {
-                document.body.removeAttribute('data-theme');
-            }
-            updateGlider('themeSegment', 'themeGlider', setting);
+    function applyTheme(setting, isDark) {
+        currentTheme = setting;
+        if (setting === 'dark' || (setting === 'system' && isDark)) {
+            document.body.setAttribute('data-theme', 'dark');
+        } else {
+            document.body.removeAttribute('data-theme');
         }
+        updateGlider('themeSegment', 'themeGlider', setting);
+    }
 
-        ipcRenderer.send('get-settings');
-        ipcRenderer.on('settings-data', (event, data) => {
-            isInitializing = true;
-            elements.autoCleanToggle.checked = data.autoClean;
-            elements.notifyToggle.checked = data.enableNotification !== false;
-            elements.showInDockToggle.checked = data.showInDock !== false;
-            elements.intervalDaysInput.value = data.intervalDays;
-            elements.cronExpressionInput.value = data.cronExpression;
-            elements.pathDisplay.innerText = data.cachePath;
-            elements.valLastClean.innerText = data.lastCleanTime;
-            elements.valTotalSaved.innerText = data.totalCleanedSize;
-            elements.cronHelper.value = data.cronExpression;
-            
-            updateLanguage(data.language);
-            applyTheme(data.theme, data.isDark);
-            if (data.nextRuns) updateNextRuns(data.nextRuns);
-            setTimeout(() => { isInitializing = false; }, 100);
+    function applyCleanMode(mode) {
+        currentCleanMode = mode;
+        updateGlider('cleanModeSegment', 'cleanModeGlider', mode);
+        // 模式切换时，隐藏或显示阈值行
+        if (elements.intervalRow) {
+            elements.intervalRow.style.display = (mode === 'folder') ? 'none' : 'flex';
+        }
+    }
+
+    ipcRenderer.send('get-settings');
+    ipcRenderer.on('settings-data', (event, data) => {
+        isInitializing = true;
+        elements.autoCleanToggle.checked = data.autoClean;
+        elements.notifyToggle.checked = data.enableNotification !== false;
+        elements.autoLaunchToggle.checked = data.autoLaunch;
+        elements.showInDockToggle.checked = data.showInDock !== false;
+        elements.intervalDaysInput.value = data.intervalDays;
+        elements.cronExpressionInput.value = data.cronExpression;
+        elements.pathDisplay.innerText = data.cachePath;
+        elements.valLastClean.innerText = data.lastCleanTime;
+        elements.valTotalSaved.innerText = data.totalCleanedSize;
+        elements.cronHelper.value = data.cronExpression;
+
+        updateLanguage(data.language);
+        applyTheme(data.theme, data.isDark);
+        applyCleanMode(data.cleanMode || 'file');
+        updateUsage(data.currentDirSize);
+
+        if (data.nextRuns) updateNextRuns(data.nextRuns);
+        setTimeout(() => { isInitializing = false; }, 100);
+    });
+
+    ipcRenderer.on('theme-changed', (e, d) => applyTheme(d.themeSetting, d.isDark));
+    ipcRenderer.on('stats-updated', (e, d) => {
+        elements.valLastClean.innerText = d.lastCleanTime;
+        elements.valTotalSaved.innerText = d.totalCleanedSize;
+        updateUsage(d.currentDirSize);
+    });
+
+    function updateUsage(sizeStr) {
+        console.log("updateUsage", sizeStr);
+        elements.valCurrentUsage.innerText = sizeStr;
+        let bytes = parseSize(sizeStr);
+        let gb = bytes / (1000 * 1000 * 1000);
+        let percent = Math.min((gb / 2) * 100, 100);
+        elements.usageProgress.style.width = percent + '%';
+        if (percent > 80) elements.usageProgress.classList.add('warning');
+        else elements.usageProgress.classList.remove('warning');
+    }
+
+    function parseSize(sizeStr) {
+        const units = { 'B': 1, 'KB': 1000, 'MB': 1000 ** 2, 'GB': 1000 ** 3, 'TB': 1000 ** 4 };
+        const match = sizeStr.match(/^([\d.]+)\s*([A-Z]+)$/i);
+        if (!match) return 0;
+        return parseFloat(match[1]) * (units[match[2].toUpperCase()] || 1);
+    }
+
+    // 定时刷新当前目录占用空间
+    setInterval(() => {
+        ipcRenderer.send('get-current-usage');
+    }, 30000); // 每 30 秒刷新一次
+
+    ipcRenderer.on('current-usage-data', (event, data) => {
+        updateUsage(data.currentDirSize);
+    });
+
+    function triggerAutoSave() {
+        if (isInitializing) return;
+        elements.statusMsg.innerText = i18n[currentLang].statusSaving;
+        ipcRenderer.send('update-settings', {
+            autoClean: elements.autoCleanToggle.checked,
+            enableNotification: elements.notifyToggle.checked,
+            autoLaunch: elements.autoLaunchToggle.checked,
+            showInDock: elements.showInDockToggle.checked,
+            intervalDays: parseInt(elements.intervalDaysInput.value) || 0,
+            cronExpression: elements.cronExpressionInput.value,
+            language: currentLang,
+            theme: currentTheme,
+            cleanMode: currentCleanMode
         });
+    }
 
-        ipcRenderer.on('theme-changed', (e, d) => applyTheme(d.themeSetting, d.isDark));
-        ipcRenderer.on('stats-updated', (e, d) => {
-            elements.valLastClean.innerText = d.lastCleanTime;
-            elements.valTotalSaved.innerText = d.totalCleanedSize;
-        });
+    elements.autoLaunchToggle.addEventListener('change', triggerAutoSave);
 
-        function triggerAutoSave() {
-            if (isInitializing) return;
-            elements.statusMsg.innerText = i18n[currentLang].statusSaving;
-            ipcRenderer.send('update-settings', {
-                autoClean: elements.autoCleanToggle.checked,
-                enableNotification: elements.notifyToggle.checked,
-                showInDock: elements.showInDockToggle.checked,
-                intervalDays: parseInt(elements.intervalDaysInput.value) || 0,
-                cronExpression: elements.cronExpressionInput.value,
-                language: currentLang,
-                theme: currentTheme
-            });
-        }
+    elements.btnPrivacy.addEventListener('click', () => {
+        alert(i18n[currentLang].privacyHint);
+        ipcRenderer.send('open-privacy-settings');
+    });
 
-        // 分段控件点击
-        document.querySelectorAll('.segment-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const parent = btn.parentElement.id;
-                const val = btn.getAttribute('data-value');
-                if (parent === 'langSegment') updateLanguage(val);
-                else if (parent === 'themeSegment') currentTheme = val;
-                triggerAutoSave();
-            });
-        });
-
-        elements.autoCleanToggle.addEventListener('change', triggerAutoSave);
-        elements.notifyToggle.addEventListener('change', triggerAutoSave);
-        elements.showInDockToggle.addEventListener('change', triggerAutoSave);
-        elements.intervalDaysInput.addEventListener('input', triggerAutoSave);
-        elements.cronExpressionInput.addEventListener('input', (e) => {
-            ipcRenderer.send('preview-cron', e.target.value);
+    // 分段控件点击
+    document.querySelectorAll('.segment-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const parent = btn.parentElement.id;
+            const val = btn.getAttribute('data-value');
+            if (parent === 'langSegment') updateLanguage(val);
+            else if (parent === 'themeSegment') currentTheme = val;
+            else if (parent === 'cleanModeSegment') applyCleanMode(val);
             triggerAutoSave();
         });
-        elements.cronHelper.addEventListener('change', (e) => {
-            elements.cronExpressionInput.value = e.target.value;
-            ipcRenderer.send('preview-cron', e.target.value);
-            triggerAutoSave();
-        });
+    });
 
-        ipcRenderer.on('cron-preview-data', (event, data) => {
-            if (data.success) updateNextRuns(data.nextRuns);
-            else {
-                elements.nextRunsBox.style.display = 'block';
-                elements.nextRunsList.innerHTML = `<div style="color: var(--danger-color)">${i18n[currentLang].cronInvalid}</div>`;
-            }
-        });
+    elements.autoCleanToggle.addEventListener('change', triggerAutoSave);
+    elements.notifyToggle.addEventListener('change', triggerAutoSave);
+    elements.showInDockToggle.addEventListener('change', triggerAutoSave);
+    elements.intervalDaysInput.addEventListener('input', triggerAutoSave);
+    elements.cronExpressionInput.addEventListener('input', (e) => {
+        ipcRenderer.send('preview-cron', e.target.value);
+        triggerAutoSave();
+    });
+    elements.cronHelper.addEventListener('change', (e) => {
+        elements.cronExpressionInput.value = e.target.value;
+        ipcRenderer.send('preview-cron', e.target.value);
+        triggerAutoSave();
+    });
 
-        function updateNextRuns(runs) {
-            elements.nextRunsBox.style.display = runs.length ? 'block' : 'none';
-            elements.nextRunsList.innerHTML = runs.map(r => `<div class="cron-item">${r}</div>`).join('');
+    ipcRenderer.on('cron-preview-data', (event, data) => {
+        if (data.success) updateNextRuns(data.nextRuns);
+        else {
+            elements.nextRunsBox.style.display = 'block';
+            elements.nextRunsList.innerHTML = `<div style="color: var(--danger-color)">${i18n[currentLang].cronInvalid}</div>`;
         }
+    });
 
-        ipcRenderer.on('settings-updated', () => {
-            elements.statusMsg.innerText = i18n[currentLang].statusSaved;
-            elements.statusMsg.classList.add('status-saved');
-            setTimeout(() => {
-                elements.statusMsg.innerText = i18n[currentLang].statusReady;
-                elements.statusMsg.classList.remove('status-saved');
-            }, 2000);
-        });
+    function updateNextRuns(runs) {
+        elements.nextRunsBox.style.display = runs.length ? 'block' : 'none';
+        elements.nextRunsList.innerHTML = runs.map(r => `<div class="cron-item">${r}</div>`).join('');
+    }
 
-        elements.changePathBtn.addEventListener('click', () => ipcRenderer.send('select-path'));
-        ipcRenderer.on('path-selected', (e, p) => { elements.pathDisplay.innerText = p; triggerAutoSave(); });
+    ipcRenderer.on('settings-updated', () => {
+        elements.statusMsg.innerText = i18n[currentLang].statusSaved;
+        elements.statusMsg.classList.add('status-saved');
+        setTimeout(() => {
+            elements.statusMsg.innerText = i18n[currentLang].statusReady;
+            elements.statusMsg.classList.remove('status-saved');
+        }, 2000);
+    });
 
-        elements.cleanNowBtn.addEventListener('click', () => {
-            elements.statusMsg.innerText = i18n[currentLang].statusCleaning;
-            ipcRenderer.send('manual-clean');
-        });
+    elements.changePathBtn.addEventListener('click', () => ipcRenderer.send('select-path'));
+    ipcRenderer.on('path-selected', (e, p) => { elements.pathDisplay.innerText = p; triggerAutoSave(); });
 
-        ipcRenderer.on('clean-finished', () => {
-            elements.statusMsg.innerText = i18n[currentLang].statusFinished;
-            setTimeout(() => elements.statusMsg.innerText = i18n[currentLang].statusReady, 2000);
-        });
-    </script>
+    elements.cleanNowBtn.addEventListener('click', () => {
+        elements.statusMsg.innerText = i18n[currentLang].statusCleaning;
+        ipcRenderer.send('manual-clean');
+    });
+
+    ipcRenderer.on('clean-finished', () => {
+        elements.statusMsg.innerText = i18n[currentLang].statusFinished;
+        setTimeout(() => elements.statusMsg.innerText = i18n[currentLang].statusReady, 2000);
+    });
+</script>
 </body>
 </html>
