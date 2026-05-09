@@ -114,7 +114,7 @@ function getFormattedNow() {
 }
 
 async function getDirectorySize(dirPath) {
-  console.log(`Scanning size for: ${dirPath}`);
+  // console.log(`Scanning size for: ${dirPath}`);
   try {
     // 使用 find 遍历所有文件并用 stat 获取逻辑大小 (字节)，最后用 awk 累加
     // 这种方法最慢但最准，完全对齐 Finder 简介中的“字节”
@@ -122,7 +122,7 @@ async function getDirectorySize(dirPath) {
     const { stdout } = await execPromise(cmd);
     
     const totalSize = parseInt(stdout.trim()) || 0;
-    console.log(`Scan finished. Result: ${totalSize} bytes`);
+    // console.log(`Scan finished. Result: ${totalSize} bytes`);
     return totalSize;
   } catch (e) {
     console.error('Fatal error in size calculation:', e.message);
@@ -208,99 +208,116 @@ async function cleanCache() {
   const excludeList = store.get('excludeList', DEFAULT_SETTINGS.excludeList);
   const now = Date.now();
   const msInDay = 24 * 60 * 60 * 1000;
-  
-  let totalDeletedSize = 0;
 
   if (!fs.existsSync(cachePath)) {
     console.log('Cache path does not exist:', cachePath);
     return 0;
   }
 
-  // 第一阶段：扫描并计算符合条件的总大小
-  let itemsToClean = [];
+  let cleanedCount = 0;
+  let cleanedSize = 0;
+
   try {
-    const files = fs.readdirSync(cachePath);
-    for (const file of files) {
-      const fullPath = path.join(cachePath, file);
-      if (excludeList.some(item => file.includes(item))) continue;
-
+    if (cleanMode === 'folder') {
       try {
-        const stats = fs.statSync(fullPath);
-        const fileAgeDays = (now - stats.mtime.getTime()) / msInDay;
-        if (fileAgeDays >= intervalDays) {
-          itemsToClean.push({ name: file, path: fullPath, stats });
+        const folderName = path.basename(cachePath);
+        const parentDir = path.dirname(cachePath);
+        const timestamp = getFormattedNow();
+        // 1. 在父级目录创建一个带标记的新文件夹，作为“垃圾箱容器”
+        const trashContainer = path.join(parentDir, `${folderName}_FreemixCleaned_${timestamp}`);
+        await fs.promises.mkdir(trashContainer, { recursive: true });
+
+        // 2. 遍历原目录内容，将所有可移动的子项“剪切”到新文件夹中
+        const items = await fs.promises.readdir(cachePath);
+        for (const item of items) {
+          if (excludeList.some(ex => item.includes(ex))) continue;
+          
+          const oldItemPath = path.join(cachePath, item);
+          const newItemPath = path.join(trashContainer, item);
+          
+          try {
+            // 在移动前获取大小
+            const itemSize = getDirSize(oldItemPath);
+            // 尝试直接移动
+            await fs.promises.rename(oldItemPath, newItemPath);
+            // 移动成功后累加大小和计数
+            cleanedSize += itemSize;
+            cleanedCount++;
+          } catch (e) {
+            console.warn(`Skipping item: ${item} - might be in use or protected.`);
+          }
         }
-      } catch (e) {}
-    }
-  } catch (err) {
-    console.error('Failed to read cache directory:', err);
-    return 0;
-  }
 
-  if (itemsToClean.length === 0) {
-    console.log('Cleanup finished. No files meet the criteria.');
-    // 即使没有清理，也可以选择更新下时间，或者直接 return
-    return 0;
-  }
-
-  // 第二阶段：执行清理
-  for (const item of itemsToClean) {
-    try {
-      const size = getDirSize(item.path);
-      if (item.stats.isDirectory()) {
-        if (cleanMode === 'folder') {
-          fs.rmSync(item.path, { recursive: true, force: true });
-          totalDeletedSize += size;
+        // 3. 判定：如果切出来的东西总大小为 0，则不移入废纸篓，直接删除空容器
+        if (cleanedCount > 0 && cleanedSize > 0) {
+          await shell.trashItem(trashContainer);
+          console.log(`Successfully moved folder contents into container and trashed: ${trashContainer} (Total: ${formatSize(cleanedSize)})`);
         } else {
-          totalDeletedSize += cleanFolderContents(item.path, intervalDays, excludeList);
+          console.log('No files with size > 0 were moved. Deleting empty container.');
+          await fs.promises.rm(trashContainer, { recursive: true, force: true });
+          cleanedCount = 0; // 重置计数，确保不会触发通知和统计更新
         }
-      } else {
-        fs.unlinkSync(item.path);
-        totalDeletedSize += size;
+      } catch (folderErr) {
+        console.error('Final folder strategy failed:', folderErr.message);
+        throw folderErr;
       }
-    } catch (e) {
-      console.log(`Skipping item: ${item.name} - might be in use or protected.`);
-    }
-  }
+    } else {
+      // 文件模式：原来的逻辑
+      const files = await fs.promises.readdir(cachePath);
+      for (const file of files) {
+        const filePath = path.join(cachePath, file);
+        if (excludeList.some(ex => file.includes(ex))) continue;
 
-  if (totalDeletedSize === 0) {
-    console.log('Cleanup finished. All eligible files were protected or in use.');
+        try {
+          const stats = await fs.promises.stat(filePath);
+          const ageDays = (now - stats.mtime.getTime()) / msInDay;
+
+          if (ageDays >= intervalDays) {
+            cleanedSize += stats.size;
+            await shell.trashItem(filePath);
+            cleanedCount++;
+            console.log(`Moved to trash: ${file} (${formatSize(stats.size)})`);
+          }
+        } catch (err) {}
+      }
+    }
+
+    // 更新统计数据
+    if (cleanedCount > 0) {
+      const totalSize = (store.get('totalCleanedSize', 0) || 0) + cleanedSize;
+      const cleanTime = new Date().toLocaleString();
+      store.set('totalCleanedSize', totalSize);
+      store.set('lastCleanTime', cleanTime);
+
+      console.log(`Cleanup finished. Total deleted this time: ${formatSize(cleanedSize)}`);
+
+      // 发送通知
+      const isNotifyEnabled = store.get('enableNotification', DEFAULT_SETTINGS.enableNotification);
+      if (isNotifyEnabled && Notification.isSupported()) {
+        new Notification({
+          title: '清理完成',
+          body: `本次共节省了 ${formatSize(cleanedSize)} 磁盘空间`,
+          silent: false
+        }).show();
+      }
+
+      // 同步给 UI
+      if (mainWindow) {
+        const currentSize = await getDirectorySize(cachePath);
+        mainWindow.webContents.send('stats-updated', {
+          lastCleanTime: cleanTime,
+          totalCleanedSize: formatSize(totalSize),
+          currentDirSize: formatSize(currentSize)
+        });
+      }
+    } else {
+      console.log('Cleanup finished. No files meet the criteria or all files were protected.');
+    }
+    return cleanedSize;
+  } catch (err) {
+    console.error('Failed to clean cache:', err);
     return 0;
   }
-
-  // 更新最后运行时间
-  const cleanTime = new Date().toLocaleString();
-  store.set('lastCleanTime', cleanTime);
-  
-  if (totalDeletedSize > 0) {
-    const currentTotal = store.get('totalCleanedSize', 0);
-    store.set('totalCleanedSize', currentTotal + totalDeletedSize);
-    console.log(`Cleanup finished. Total deleted this time: ${formatSize(totalDeletedSize)}`);
-  } else {
-    console.log('Cleanup finished. No files were deleted.');
-  }
-
-  // 发送统计更新
-  if (mainWindow) {
-    const totalSaved = store.get('totalCleanedSize', 0);
-    const currentSize = await getDirectorySize(cachePath);
-    mainWindow.webContents.send('stats-updated', {
-      lastCleanTime: cleanTime,
-      totalCleanedSize: formatSize(totalSaved),
-      currentDirSize: formatSize(currentSize)
-    });
-
-    // 如果开启了通知且清理了东西
-    if (totalDeletedSize > 0 && store.get('enableNotification', true)) {
-      new Notification({
-        title: '清理完成',
-        body: `本次共节省了 ${formatSize(totalDeletedSize)} 磁盘空间`,
-        silent: false
-      }).show();
-    }
-  }
-
-  return totalDeletedSize;
 }
 
 function formatSize(bytes) {
