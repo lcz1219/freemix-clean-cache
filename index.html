@@ -5,606 +5,979 @@
     <title>FreemixCleanCache Assistant</title>
     <style>
         :root {
-            --primary-color: #007AFF;
-            --bg-color: #F2F2F7;
-            --card-bg: #FFFFFF;
-            --text-main: #1D1D1F;
-            --text-secondary: #86868B;
-            --danger-color: #FF3B30;
-            --success-color: #34C759;
-            --border-color: rgba(0, 0, 0, 0.1);
-            --segment-bg: rgba(118, 118, 128, 0.12);
-            --segment-active-bg: #FFFFFF;
+            --system-blue: #007AFF;
+            --system-bg: #FFFFFF;
+            --canvas-bg: #F2F2F7;
+            --label-primary: #1D1D1F;
+            --label-secondary: #86868B;
+            --fill-quaternary: rgba(120, 120, 128, 0.08);
+            --header-bg: rgba(255, 255, 255, 0.85);
+            --radius-pill: 40px;
+            --radius-xl: 22px;
+            --transition-main: all 0.5s cubic-bezier(0.2, 0, 0, 1);
         }
 
         [data-theme="dark"] {
-            --bg-color: #1C1C1E;
-            --card-bg: #2C2C2E;
-            --text-main: #FFFFFF;
-            --text-secondary: #98989D;
-            --border-color: rgba(255, 255, 255, 0.1);
-            --segment-bg: rgba(118, 118, 128, 0.24);
-            --segment-active-bg: #636366;
+            --system-bg: #000000;
+            --canvas-bg: #1C1C1E;
+            --label-primary: #F5F5F7;
+            --label-secondary: #8E8E93;
+            --fill-quaternary: rgba(120, 120, 128, 0.18);
+            --header-bg: rgba(0, 0, 0, 0.85);
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            cursor: default;
+        }
+
+        button, .segment-btn, .slider, input, select, .switch, a {
+            cursor: pointer !important;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+            background-color: var(--system-bg);
+            color: var(--label-primary);
             margin: 0;
-            padding: 0;
             height: 100vh;
-            display: flex;
-            flex-direction: column;
             overflow: hidden;
-            user-select: none;
-            transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .titlebar { height: 44px; -webkit-app-region: drag; flex-shrink: 0; }
+        .header {
+            height: 72px;
+            background: var(--header-bg);
+            backdrop-filter: saturate(210%) blur(40px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 0.5px solid var(--fill-quaternary);
+            -webkit-app-region: drag;
+            padding: 0 20px;
+        }
 
-        .container { flex: 1; padding: 0 24px 24px; overflow-y: auto; display: flex; flex-direction: column; }
-
-        header { margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; }
-        h1 { font-size: 24px; font-weight: 700; margin: 0; letter-spacing: -0.5px; }
-
-        /* macOS 风格 Segmented Control */
-        .controls-column { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
-
-        .segmented-wrapper {
-            background: var(--segment-bg);
-            padding: 2px;
-            border-radius: 8px;
-            display: inline-flex;
+        .segmented-control {
+            display: flex;
+            background: var(--fill-quaternary);
+            padding: 3px;
+            border-radius: 14px;
             position: relative;
+            width: 100%;
+            max-width: 440px;
             -webkit-app-region: no-drag;
         }
 
         .segment-btn {
-            padding: 4px 12px;
-            font-size: 11px;
-            font-weight: 500;
-            color: var(--text-secondary);
-            cursor: pointer;
-            border-radius: 6px;
-            position: relative;
-            z-index: 1;
-            transition: color 0.2s;
-            min-width: 40px;
+            flex: 1;
+            padding: 8px 0;
+            font-size: 13px;
+            font-weight: 600;
             text-align: center;
+            color: var(--label-secondary);
+            z-index: 2;
+            border: none;
+            background: transparent;
+            transition: color 0.3s;
         }
 
-        .segment-btn.active { color: var(--text-main); }
+        .segment-btn.active { color: var(--label-primary); }
 
-        .segment-glider {
+        .glider {
             position: absolute;
-            height: calc(100% - 4px);
-            background: var(--segment-active-bg);
-            border-radius: 6px;
-            z-index: 0;
-            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            height: calc(100% - 6px);
+            background: var(--system-bg);
+            border-radius: 11px;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+            z-index: 1;
+            transition: transform 0.4s cubic-bezier(0.2, 0, 0, 1), width 0.4s cubic-bezier(0.2, 0, 0, 1);
         }
 
-        /* 统计卡片 */
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px; }
-        .stat-card {
-            background: var(--card-bg);
-            padding: 14px;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            transition: transform 0.2s;
+        .content-area {
+            height: calc(100vh - 72px);
+            overflow-y: auto;
+            padding: 40px 80px;
+            scroll-behavior: smooth;
         }
-        .stat-label { font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.5px; }
-        .stat-value { font-size: 16px; font-weight: 700; color: var(--primary-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        /* 进度条样式 */
-        .storage-usage { margin-bottom: 20px; padding: 0 4px; }
-        .usage-info { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; font-weight: 500; align-items: center; }
-        .usage-info .btn-link { font-size: 10px; color: var(--primary-color); cursor: pointer; text-decoration: none; border: 1px solid var(--primary-color); padding: 1px 6px; border-radius: 4px; transition: all 0.2s; }
-        .usage-info .btn-link:hover { background: var(--primary-color); color: white; }
-        .progress-bar { height: 6px; background: var(--segment-bg); border-radius: 3px; overflow: hidden; position: relative; }
-        .progress-fill { height: 100%; background: var(--primary-color); border-radius: 3px; transition: width 0.5s ease-out; width: 0; }
-        .progress-fill.warning { background: var(--danger-color); }
+        .page { display: none; }
+        .page.active { display: block; animation: pageReveal 0.6s cubic-bezier(0.2, 0, 0, 1); }
 
-        .setting-group {
-            background: var(--card-bg);
-            border-radius: 12px;
-            margin-bottom: 16px;
-            border: 1px solid var(--border-color);
+        @keyframes pageReveal {
+            from { opacity: 0; transform: scale(0.98) translateY(10px); filter: blur(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+        }
+
+        .hero-container {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .hero-label {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--label-secondary);
+            text-transform: uppercase;
+            letter-spacing: 2.5px;
+        }
+
+        .hero-value {
+            font-size: 88px;
+            font-weight: 800;
+            letter-spacing: -4px;
+            margin: 15px 0;
+            line-height: 0.9;
+            background: linear-gradient(180deg, var(--label-primary) 40%, var(--label-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 4px;
+            background: var(--fill-quaternary);
+            border-radius: 2px;
+            margin: 30px 0;
             overflow: hidden;
+        }
+
+        .progress-thumb {
+            height: 100%;
+            background: var(--system-blue);
+            width: 0;
+            transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 0 20px rgba(0, 122, 255, 0.3);
+        }
+
+        .mini-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .glass-card {
+            background: var(--canvas-bg);
+            padding: 24px;
+            border-radius: var(--radius-xl);
+            border: 0.5px solid var(--fill-quaternary);
+            text-align: left;
+        }
+        .glass-card:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,0.04); }
+        .glass-card .card-value { font-size: 24px; font-weight: 700; margin-top: 8px; display: block; }
+
+        .group-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--label-secondary);
+            margin: 30px 0 12px 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .setting-item {
+            background: var(--canvas-bg);
+            padding: 16px 20px;
+            border-radius: 16px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 0.5px solid transparent;
+        }
+        .setting-item:hover { border-color: var(--fill-quaternary); }
+
+        .setting-title { font-size: 16px; font-weight: 600; }
+        .setting-desc { font-size: 12px; color: var(--label-secondary); margin-top: 2px; }
+
+        .pill-button {
+            background: var(--label-primary);
+            color: var(--system-bg);
+            border: none;
+            padding: 18px 64px;
+            border-radius: 40px;
+            font-size: 18px;
+            font-weight: 700;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+        }
+        .pill-button:hover { transform: translateY(-2px); box-shadow: 0 15px 40px rgba(0,0,0,0.2); }
+        .pill-button:active { transform: scale(0.96); opacity: 0.9; }
+
+        /* Timeline 风格执行列表 */
+        .time-capsule-list {
+            background: var(--canvas-bg);
+            border-radius: 20px;
+            padding: 10px;
+        }
+        .time-capsule-item {
+            padding: 12px 18px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border-bottom: 0.5px solid var(--fill-quaternary);
+        }
+        .time-capsule-item:last-child { border-bottom: none; }
+        .time-capsule-item::before {
+            content: "";
+            width: 8px;
+            height: 8px;
+            background: var(--system-blue);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--system-blue);
+        }
+        .time-capsule-time { font-family: "SF Mono", monospace; font-weight: 700; font-size: 14px; }
+
+        /* macOS 2026 Switch */
+        .switch { position: relative; display: inline-block; width: 46px; height: 28px; }
+        .slider {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: var(--fill-quaternary); border-radius: 30px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 24px; width: 24px; left: 2px; bottom: 2px;
+            background-color: white; border-radius: 50%; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        input:checked + .slider { background-color: var(--system-blue); }
+        input:checked + .slider:before { transform: translateX(18px); }
+
+        input[type="number"], input[type="text"], select {
+            background: var(--fill-quaternary); border: none;
+            border-radius: 12px; padding: 10px 16px; font-size: 14px; color: var(--label-primary); font-weight: 600;
+            appearance: none; /* 移除原生外观 */
+        }
+
+        /* 隐藏数字输入框的上下箭头 */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type="number"] {
+            -moz-appearance: textfield; /* Firefox 适配 */
+        }
+
+        input:focus { background: var(--system-bg); box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15); }
+        
+        .status-text { font-size: 12px; font-weight: 800; color: var(--label-secondary); margin-top: 24px; text-transform: uppercase; letter-spacing: 1px; }
+        /* 深度优化调度配置 UI */
+        .automation-config-card {
+            background: var(--canvas-bg);
+            border-radius: 20px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            border: 0.5px solid var(--fill-quaternary);
+        }
+
+        .cron-selector-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            padding-bottom: 15px;
+            border-bottom: 0.5px solid var(--fill-quaternary);
+        }
+
+        .cron-config-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            font-size: 15px;
+            min-height: 44px;
+        }
+
+        .cron-config-area input, .cron-config-area select {
+            background: var(--system-bg);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+
+        .next-run-header {
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--system-blue);
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .next-run-header::after {
+            content: "";
+            flex: 1;
+            height: 0.5px;
+            background: var(--fill-quaternary);
+        }
+
+        .time-capsule-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .time-capsule-item {
+            background: var(--system-bg);
             padding: 12px 16px;
-            border-bottom: 1px solid var(--border-color);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border: 0.5px solid transparent;
+            transition: all 0.3s ease;
         }
-        .setting-item:last-child { border-bottom: none; }
 
-        .setting-info { flex: 1; padding-right: 12px; }
-        .setting-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
-        .setting-desc { font-size: 11px; color: var(--text-secondary); line-height: 1.3; }
+        .time-capsule-item:hover {
+            transform: translateX(4px);
+            border-color: var(--system-blue);
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.08);
+        }
 
-        input[type="number"], input[type="text"], select {
-            padding: 5px 8px;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--system-blue);
+            border-radius: 50%;
+            position: relative;
+        }
+
+        .pulse-dot::after {
+            content: "";
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: inherit;
+            border-radius: inherit;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(3); opacity: 0; }
+        }
+        /* 深度优化动态 Cron 配置区 */
+        .cron-config-area {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            background: var(--fill-quaternary);
+            border-radius: 14px;
+            width: 100%;
+        }
+
+        .cron-field {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .cron-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--label-secondary);
+            min-width: 60px;
+        }
+
+        .cron-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .cron-input-wrapper input[type="number"], 
+        .cron-input-wrapper input[type="time"],
+        .cron-input-wrapper select {
+            background: var(--system-bg);
+            border: 1px solid var(--fill-quaternary);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--system-blue);
+            width: 100%;
+            transition: all 0.2s ease;
+        }
+
+        .cron-input-wrapper input:focus {
+            border-color: var(--system-blue);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+        }
+
+        .cron-unit {
             font-size: 12px;
-            outline: none;
-            background: rgba(118, 118, 128, 0.08);
-            color: var(--text-main);
-            text-align: center;
-        }
-
-        .path-display {
-            font-family: "SF Mono", monospace;
-            font-size: 10.5px;
-            color: var(--text-secondary);
-            background: rgba(118, 118, 128, 0.08);
-            padding: 4px 8px;
-            border-radius: 6px;
-            /* max-width: 160px; */
-            overflow: hidden;
-            text-overflow: ellipsis;
+            font-weight: 700;
+            color: var(--label-secondary);
+            opacity: 0.6;
             white-space: nowrap;
         }
-
-        .switch { position: relative; display: inline-block; width: 40px; height: 22px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(118, 118, 128, 0.3); transition: .3s; border-radius: 22px; }
-        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 2px; bottom: 2px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-        input:checked + .slider { background-color: var(--success-color); }
-        input:checked + .slider:before { transform: translateX(18px); }
-
-        .btn { width: 100%; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
-        .btn-primary { background: var(--primary-color); color: white; }
-        .btn-primary:active { opacity: 0.8; transform: scale(0.98); }
-
-        .cron-preview { padding: 10px 16px; background: rgba(52, 199, 89, 0.08); font-size: 11px; color: var(--text-secondary); border-top: 1px solid var(--border-color); }
-        .cron-item { margin-top: 3px; color: var(--success-color); font-weight: 500; font-family: -apple-system, sans-serif; }
-
-        .status-text { text-align: center; margin-top: 12px; font-size: 11px; color: var(--text-secondary); height: 16px; flex-shrink: 0; }
-        .status-saved { color: var(--success-color); font-weight: 600; }
-
-        ::-webkit-scrollbar { width: 0; }
     </style>
 </head>
 <body>
-<div class="titlebar"></div>
-<div class="container">
-    <header>
-        <h1 id="title">FreemixCleanCache</h1>
-        <div class="controls-column">
-            <!-- 语言切换 -->
-            <div class="segmented-wrapper" id="langSegment">
-                <div class="segment-glider" id="langGlider"></div>
-                <div class="segment-btn" data-value="zh">中文</div>
-                <div class="segment-btn" data-value="en">EN</div>
-            </div>
-            <!-- 主题切换 -->
-            <div class="segmented-wrapper" id="themeSegment">
-                <div class="segment-glider" id="themeGlider"></div>
-                <div class="segment-btn" id="system" data-value="system">Auto</div>
-                <div class="segment-btn" id="light" data-value="light">Light</div>
-                <div class="segment-btn" id="dark" data-value="dark">Dark</div>
-            </div>
-        </div>
-    </header>
-
-    <div class="stats-grid">
-        <div class="stat-card">
-            <div class="stat-label" id="labelLastClean">上次清理</div>
-            <div class="stat-value" id="valLastClean">-</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label" id="labelTotalSaved">累计节省</div>
-            <div class="stat-value" id="valTotalSaved">0 B</div>
+    <div class="header">
+        <div class="segmented-control" id="mainTabs">
+            <div class="glider" id="mainGlider"></div>
+            <div class="segment-btn active" data-page="pageDashboard" data-index="0" id="tabDashboard">看板</div>
+            <div class="segment-btn" data-page="pageRules" data-index="1" id="tabRules">清理规则</div>
+            <div class="segment-btn" data-page="pageAutomation" data-index="2" id="tabAutomation">自动化</div>
+            <div class="segment-btn" data-page="pageSettings" data-index="3" id="tabSettings">偏好设置</div>
         </div>
     </div>
 
-    <!-- 空间占用进度条 -->
-    <div class="storage-usage">
-        <div class="usage-info">
-            <div>
-                <span id="labelCurrentUsage">当前目录占用</span>
-                <span id="valCurrentUsage">0 B</span>
+    <div class="content-area" id="mainContent">
+        <!-- 1. 看板 -->
+        <div id="pageDashboard" class="page active">
+            <div class="hero-container">
+                <span class="hero-label" id="labelCurrentUsage">当前占用</span>
+                <span class="hero-value" id="valCurrentUsage">0.00 GB</span>
+                <div style="max-width: 440px; margin: 0 auto;">
+                    <div class="progress-track"><div class="progress-thumb" id="usageProgress"></div></div>
+                    <div style="display:flex; justify-content: space-between; align-items: center;">
+                        <p class="setting-desc" id="privacyHint">如果数值不准，请开启完全磁盘访问权限。</p>
+                        <button class="btn" style="background:none; color:var(--system-blue); font-size:11px; font-weight:800;" id="btnPrivacy">权限设置引导</button>
+                    </div>
+                </div>
             </div>
-            <div id="btnPrivacy" style="display: none;"></div>
-        </div>
-        <div class="progress-bar">
-            <div class="progress-fill" id="usageProgress"></div>
-        </div>
-    </div>
 
-    <div class="setting-group">
-        <div class="setting-item">
-            <div class="setting-info">
-                <div class="setting-title" id="labelAutoClean">自动清理</div>
-                <div class="setting-desc" id="subAutoClean">后台按计划静默执行</div>
+            <div class="mini-grid">
+                <div class="glass-card">
+                    <span class="hero-label" style="font-size: 10px;" id="labelLastClean">上次清理</span>
+                    <span class="card-value" id="valLastClean">-</span>
+                </div>
+                <div class="glass-card">
+                    <span class="hero-label" style="font-size: 10px;" id="labelTotalSaved">累计节省</span>
+                    <span class="card-value" id="valTotalSaved">0 B</span>
+                </div>
             </div>
-            <div class="setting-control">
-                <label class="switch">
-                    <input type="checkbox" id="autoCleanToggle">
-                    <span class="slider"></span>
-                </label>
+
+            <div style="display:flex; flex-direction:column; align-items:center; margin-top:60px;">
+                <button class="pill-button" id="cleanNowBtn">开始清理</button>
+                <div class="status-text" id="statusMsg">Ready</div>
             </div>
         </div>
 
-        <div class="setting-item">
-            <div class="setting-info">
-                <div class="setting-title" id="labelCleanMode">清理模式</div>
-                <div class="setting-desc" id="subCleanMode">选择清理文件还是删除目录</div>
+        <!-- 2. 清理规则 -->
+        <div id="pageRules" class="page">
+            <div class="group-title" id="labelGranularity">执行粒度</div>
+            <div class="setting-item">
+                <div class="setting-info">
+                    <div class="setting-title" id="labelCleanMode">清理模式</div>
+                    <div class="setting-desc" id="subCleanMode">文件级清理或删除整个目录</div>
+                </div>
+                <div class="segmented-control" id="cleanModeSegment" style="max-width: 160px;">
+                    <div class="glider"></div>
+                    <div class="segment-btn active" data-value="file" data-index="0" id="modeFile">文件</div>
+                    <div class="segment-btn" data-value="folder" data-index="1" id="modeFolder">目录</div>
+                </div>
             </div>
-            <div class="setting-control">
-                <div class="segmented-wrapper" id="cleanModeSegment">
-                    <div class="segment-glider" id="cleanModeGlider"></div>
-                    <div class="segment-btn" data-value="file" id="modeFile">文件级</div>
-                    <div class="segment-btn" data-value="folder" id="modeFolder">文件夹</div>
+
+            <div class="group-title" id="intervalTitle">时间阈值</div>
+            <div class="setting-item" id="intervalRow">
+                <div class="setting-info">
+                    <div class="setting-title" id="labelInterval">保留时间 (天)</div>
+                    <div class="setting-desc" id="subInterval">超过此天数的文件将被清理</div>
+                </div>
+                <input type="number" id="intervalDays" min="1" max="365" style="width: 85px;">
+            </div>
+
+            <div class="group-title" id="labelScanRange">扫描范围</div>
+            <div class="setting-item">
+                <div class="setting-info">
+                    <div class="setting-title" id="labelExcludeList">排除项</div>
+                    <div class="setting-desc" id="subExcludeList">关键字以逗号分隔</div>
+                </div>
+                <input type="text" id="excludeList" placeholder="Safari, Logs..." style="width: 200px;">
+            </div>
+            <div class="setting-item">
+                <div class="setting-info">
+                    <div class="setting-title" id="labelPath">目标路径</div>
+                    <div class="path-display" id="pathDisplay">/Users/...</div>
+                </div>
+                <button class="pill-button" style="padding: 10px 30px; font-size: 14px; box-shadow: none;" id="changePathBtn">更改路径</button>
+            </div>
+        </div>
+
+        <!-- 3. 自动化 -->
+        <div id="pageAutomation" class="page">
+            <div class="group-title" id="labelAutomation">自动化</div>
+            <div class="setting-item">
+                <div class="setting-info">
+                    <div class="setting-title" id="labelAutoClean">自动周期清理</div>
+                    <div class="setting-desc" id="subAutoClean">后台静默执行</div>
+                </div>
+                <label class="switch"><input type="checkbox" id="autoCleanToggle"><span class="slider"></span></label>
+            </div>
+
+            <div class="group-title" id="cronTitle">调度配置</div>
+            <div class="automation-config-card">
+                <div class="cron-selector-row">
+                    <span style="font-weight: 700; font-size: 14px; opacity: 0.8;" id="labelCronType">周期类型</span>
+                    <select id="cronTypeSelect" style="width:140px;"></select>
+                </div>
+                
+                <div id="cronDynamicConfig" class="cron-config-area"></div>
+                <input type="text" id="cronExpression" style="display:none;">
+                
+                <div id="nextRunsBox" style="display:none;">
+                    <div class="next-run-header">
+                        <span id="titleNextRuns">下次运行预估</span>
+                    </div>
+                    <div class="time-capsule-list" id="nextRunsList"></div>
                 </div>
             </div>
         </div>
 
-        <div class="setting-item">
-            <div class="setting-info">
-                <div class="setting-title" id="labelAutoLaunch">开机自启动</div>
-                <div class="setting-desc" id="subAutoLaunch">登录 macOS 时自动运行应用</div>
+        <!-- 4. 偏好设置 -->
+        <div id="pageSettings" class="page">
+            <div class="group-title" id="labelPersonalization">个性化</div>
+            <div class="setting-item">
+                <div class="setting-title" id="labelLanguage">语言 Language</div>
+                <div class="segmented-control" id="langSegment" style="max-width: 140px;">
+                    <div class="glider"></div>
+                    <div class="segment-btn active" data-value="zh" data-index="0">中文</div>
+                    <div class="segment-btn" data-value="en" data-index="1">English</div>
+                </div>
             </div>
-            <div class="setting-control">
-                <label class="switch">
-                    <input type="checkbox" id="autoLaunchToggle">
-                    <span class="slider"></span>
-                </label>
+            <div class="setting-item">
+                <div class="setting-title" id="labelTheme">显示模式 Theme</div>
+                <div class="segmented-control" id="themeSegment" style="max-width: 220px;">
+                    <div class="glider"></div>
+                    <div class="segment-btn active" data-value="system" data-index="0" id="system">系统</div>
+                    <div class="segment-btn" data-value="light" data-index="1" id="light">浅色</div>
+                    <div class="segment-btn" data-value="dark" data-index="2" id="dark">深色</div>
+                </div>
             </div>
-        </div>
 
-        <div class="setting-item">
-            <div class="setting-info">
-                <div class="setting-title" id="labelNotify">清理通知</div>
-                <div class="setting-desc" id="subNotify">任务完成时发送通知横幅</div>
+            <div class="group-title" id="labelSysIntegration">系统集成</div>
+            <div class="setting-item">
+                <div class="setting-title" id="labelNotify">清理结果通知</div>
+                <label class="switch"><input type="checkbox" id="notifyToggle"><span class="slider"></span></label>
             </div>
-            <div class="setting-control">
-                <label class="switch">
-                    <input type="checkbox" id="notifyToggle">
-                    <span class="slider"></span>
-                </label>
+            <div class="setting-item">
+                <div class="setting-title" id="labelAutoLaunch">登录时自动启动</div>
+                <label class="switch"><input type="checkbox" id="autoLaunchToggle"><span class="slider"></span></label>
             </div>
-        </div>
-
-        <div class="setting-item">
-            <div class="setting-info">
-                <div class="setting-title" id="labelShowInDock">程序坞图标</div>
-                <div class="setting-desc" id="subShowInDock">在 Dock 栏显示应用</div>
-            </div>
-            <div class="setting-control">
-                <label class="switch">
-                    <input type="checkbox" id="showInDockToggle">
-                    <span class="slider"></span>
-                </label>
-            </div>
-        </div>
-
-        <div class="setting-item" id="intervalRow">
-            <div class="setting-info">
-                <div class="setting-title" id="labelInterval">清理阈值 (天)</div>
-                <div class="setting-desc" id="subInterval">超过此天数未访问</div>
-            </div>
-            <div class="setting-control">
-                <input type="number" id="intervalDays" min="1" max="365" style="width: 50px;">
+            <div class="setting-item">
+                <div class="setting-title" id="labelShowInDock">显示程序坞图标</div>
+                <label class="switch"><input type="checkbox" id="showInDockToggle"><span class="slider"></span></label>
             </div>
         </div>
     </div>
 
-    <div class="setting-group">
-        <div class="setting-item">
-            <div class="setting-info">
-                <div class="setting-title" id="labelPath">扫描目录</div>
-                <div class="path-display" id="pathDisplay"></div>
-            </div>
-            <div class="setting-control">
-                <button style="background:none; border:none; color:var(--primary-color); font-size:12px; cursor:pointer; font-weight:600;" id="changePathBtn">修改</button>
-            </div>
-        </div>
-    </div>
+    <script>
+        const { ipcRenderer } = require('electron');
 
-    <div class="setting-group">
-        <div class="setting-item">
-            <div class="setting-info">
-                <div class="setting-title" id="labelCron">任务频率</div>
-                <div class="setting-desc" id="cronHint">输入 Cron 或快捷选择</div>
-            </div>
-            <div class="setting-control">
-                <select id="cronHelper" style=" margin-right: 5px;">
-                    <option value="0 0 * * *" id="optEveryMidnight">每天凌晨</option>
-                    <option value="0 12 * * *" id="optEveryNoon">每天中午</option>
-                    <option value="0 0 * * 1" id="optEveryMonday">每周一</option>
-                    <option value="0 0 0/1 * * ?" id="optEveryMonday">每隔一小时</option>
-                    <option value="0 0/30 * * * ?" id="optEveryMonday">每隔半小时</option>
-                </select>
-                <input type="text" id="cronExpression" style="width: 65px;" placeholder="0 0 * * *">
-            </div>
-        </div>
-        <div class="cron-preview" id="nextRunsBox" style="display: none;">
-            <div id="titleNextRuns" style="margin-bottom: 4px; font-weight: 600;">预定时间：</div>
-            <div id="nextRunsList"></div>
-        </div>
-    </div>
+        const i18n = {
+            zh: {
+                tabDashboard: '看板', tabRules: '规则', tabAutomation: '自动化', tabSettings: '设置',
+                labelCurrentUsage: '当前占用', privacyHint: '如果数值不准，请开启完全磁盘访问权限。',
+                btnPrivacy: '权限设置引导', cleanNowBtn: '开始清理', statusReady: '准备就绪',
+                labelLastClean: '上次清理', labelTotalSaved: '累计节省',
+                labelGranularity: '执行粒度', labelCleanMode: '清理模式', subCleanMode: '文件级清理或删除整个目录',
+                modeFile: '文件', modeFolder: '目录',
+                intervalTitle: '时间阈值', labelInterval: '保留时间 (天)', subInterval: '超过此天数的文件将被清理',
+                labelScanRange: '扫描范围', labelExcludeList: '排除项', subExcludeList: '关键字以逗号分隔',
+                labelPath: '目标路径', changePathBtn: '更改路径',
+                labelAutomation: '自动化', labelAutoClean: '自动周期清理', subAutoClean: '后台静默执行',
+                cronTitle: '调度配置', labelCronType: '周期类型', cronHint: '配置执行计划',
+                titleNextRuns: '下次运行预估',
+                labelPersonalization: '个性化', labelLanguage: '语言 Language', labelTheme: '显示模式 Theme',
+                labelSysIntegration: '系统集成',
+                labelNotify: '清理结果通知', labelAutoLaunch: '登录时自动启动', labelShowInDock: '显示程序坞图标',
+                statusSaving: '正在保存...', statusSaved: '设置已保存', statusCleaning: '正在清理...', statusFinished: '清理完成',
+                cronInvalid: '非法表达式',
+                typeMinute: '按分钟', typeHour: '按小时', typeDay: '按天', typeWeek: '按周', typeCustom: '自定义',
+                labelEvery: '每隔', labelMin: '分钟', labelHour: '小时', labelAt: '在', labelAtMin: '分执行',
+                labelAtTime: '时间', labelOnWeek: '每周',
+                system: '系统', light: '浅色', dark: '深色'
+            },
+            en: {
+                tabDashboard: 'Overview', tabRules: 'Rules', tabAutomation: 'Tasks', tabSettings: 'General',
+                labelCurrentUsage: 'Storage Usage', privacyHint: 'Grant Full Disk Access if values are wrong.',
+                btnPrivacy: 'Permissions Guide', cleanNowBtn: 'Clean Now', statusReady: 'Ready',
+                labelLastClean: 'Last Clean', labelTotalSaved: 'Total Saved',
+                labelGranularity: 'Granularity', labelCleanMode: 'Clean Mode', subCleanMode: 'File-level vs Entire folder',
+                modeFile: 'Files', modeFolder: 'Folder',
+                intervalTitle: 'Threshold', labelInterval: 'Keep duration (Days)', subInterval: 'Cleanup files older than X days',
+                labelScanRange: 'Scan Range', labelExcludeList: 'Exclude List', subExcludeList: 'Separate keywords with comma',
+                labelPath: 'Target Path', changePathBtn: 'Change Path',
+                labelAutomation: 'Automation', labelAutoClean: 'Auto Schedule', subAutoClean: 'Run tasks in background',
+                cronTitle: 'Schedule Config', labelCronType: 'Frequency', cronHint: 'Configure plan',
+                titleNextRuns: 'Next Execution',
+                labelPersonalization: 'Personalization', labelLanguage: 'Language', labelTheme: 'Appearance',
+                labelSysIntegration: 'Integration',
+                labelNotify: 'Notifications', labelAutoLaunch: 'Launch at Login', labelShowInDock: 'Show in Dock',
+                statusSaving: 'Saving...', statusSaved: 'Saved', statusCleaning: 'Cleaning...', statusFinished: 'Finished',
+                cronInvalid: 'Invalid Cron',
+                typeMinute: 'Minutes', typeHour: 'Hours', typeDay: 'Daily', typeWeek: 'Weekly', typeCustom: 'Custom',
+                labelEvery: 'Every', labelMin: 'mins', labelHour: 'hours', labelAt: 'at', labelAtMin: 'min',
+                labelAtTime: 'Time', labelOnWeek: 'On',
+                system: 'System', light: 'Light', dark: 'Dark'
+            }
+        };
 
-    <button class="btn btn-primary" id="cleanNowBtn">立即开始深度清理</button>
+        const elements = {
+            tabDashboard: document.getElementById('tabDashboard'),
+            tabRules: document.getElementById('tabRules'),
+            tabAutomation: document.getElementById('tabAutomation'),
+            tabSettings: document.getElementById('tabSettings'),
+            labelAutoClean: document.getElementById('labelAutoClean'), subAutoClean: document.getElementById('subAutoClean'),
+            labelNotify: document.getElementById('labelNotify'), subNotify: document.getElementById('subNotify'),
+            labelShowInDock: document.getElementById('labelShowInDock'), subShowInDock: document.getElementById('subShowInDock'),
+            labelInterval: document.getElementById('labelInterval'), subInterval: document.getElementById('subInterval'),
+            labelPath: document.getElementById('labelPath'), changePathBtn: document.getElementById('changePathBtn'),
+            labelCron: document.getElementById('labelCron'), cronHint: document.getElementById('cronHint'),
+            labelLastClean: document.getElementById('labelLastClean'), labelTotalSaved: document.getElementById('labelTotalSaved'),
+            valLastClean: document.getElementById('valLastClean'), valTotalSaved: document.getElementById('valTotalSaved'),
+            labelCleanMode: document.getElementById('labelCleanMode'), subCleanMode: document.getElementById('subCleanMode'),
+            labelAutoLaunch: document.getElementById('labelAutoLaunch'), subAutoLaunch: document.getElementById('subAutoLaunch'),
+            labelCurrentUsage: document.getElementById('labelCurrentUsage'),
+            valCurrentUsage: document.getElementById('valCurrentUsage'),
+            usageProgress: document.getElementById('usageProgress'),
+            btnPrivacy: document.getElementById('btnPrivacy'), privacyHint: document.getElementById('privacyHint'),
+            modeFile: document.getElementById('modeFile'), modeFolder: document.getElementById('modeFolder'),
+            titleNextRuns: document.getElementById('titleNextRuns'),
+            cleanNowBtn: document.getElementById('cleanNowBtn'), statusMsg: document.getElementById('statusMsg'),
+            autoCleanToggle: document.getElementById('autoCleanToggle'),
+            notifyToggle: document.getElementById('notifyToggle'),
+            autoLaunchToggle: document.getElementById('autoLaunchToggle'),
+            showInDockToggle: document.getElementById('showInDockToggle'),
+            intervalDaysInput: document.getElementById('intervalDays'),
+            cronExpressionInput: document.getElementById('cronExpression'),
+            cronTypeSelect: document.getElementById('cronTypeSelect'),
+            cronDynamicConfig: document.getElementById('cronDynamicConfig'),
+            excludeListInput: document.getElementById('excludeList'),
+            pathDisplay: document.getElementById('pathDisplay'),
+            nextRunsBox: document.getElementById('nextRunsBox'), nextRunsList: document.getElementById('nextRunsList'),
+            system: document.getElementById('system'), dark: document.getElementById('dark'),
+            light: document.getElementById('light'),
+            intervalRow: document.getElementById('intervalRow'),
+            labelExcludeList: document.getElementById('labelExcludeList'),
+            subExcludeList: document.getElementById('subExcludeList')
+        };
 
-    <div class="status-text" id="statusMsg">系统就绪</div>
-</div>
+        let currentLang = 'zh';
+        let currentTheme = 'system';
+        let currentCleanMode = 'file';
+        let isInitializing = true;
 
-<script>
-    const { ipcRenderer } = require('electron');
-
-    const i18n = {
-        zh: {
-            title: 'FreemixCleanCache',
-            labelAutoClean: '自动清理', subAutoClean: '后台按计划静默执行',
-            labelNotify: '清理通知', subNotify: '任务完成时发送通知横幅',
-            labelShowInDock: '程序坞图标', subShowInDock: '在 Dock 栏显示应用',
-            labelInterval: '清理阈值 (天)', subInterval: '超过此天数未访问',
-            labelPath: '扫描目录', changePath: '修改',
-            labelCron: '任务频率', cronHint: '输入 Cron 或快捷选择',
-            labelLastClean: '上次清理', labelTotalSaved: '累计节省',
-            labelCleanMode: '清理模式', subCleanMode: '选择清理文件还是删除目录',
-            labelAutoLaunch: '开机自启动', subAutoLaunch: '登录 macOS 时自动运行应用',
-            labelCurrentUsage: '当前目录占用',
-            // labelPrivacy: '提升准确度',
-            privacyHint: '如果发现数值与 Finder 不符，请在系统设置中为 FreemixCleanCache 开启“完全磁盘访问权限”。',
-            modeFile: '文件级', modeFolder: '文件夹',
-            optEveryMidnight: '每天凌晨', optEveryNoon: '每天中午', optEveryMonday: '每周一',
-            titleNextRuns: '下次预定时间：',
-            cleanNowBtn: '立即开始深度清理',
-            statusReady: '系统就绪', statusSaving: '正在同步...', statusSaved: '设置已自动保存', statusCleaning: '深度扫描中...', statusFinished: '清理完成',
-            cronInvalid: '表达式非法',
-            system:"系统",
-            dark:"深色",
-            light:"浅色"
-        },
-        en: {
-            title: 'FreemixCleanCache',
-            labelAutoClean: 'Auto Clean', subAutoClean: 'Background tasks enabled',
-            labelNotify: 'Notifications', subNotify: 'Show banner when finished',
-            labelShowInDock: 'Dock Icon', subShowInDock: 'Show icon in macOS Dock',
-            labelInterval: 'Threshold', subInterval: 'Unaccessed duration',
-            labelPath: 'Target Folder', changePath: 'Change',
-            labelCron: 'Schedule', cronHint: 'Custom Cron or preset',
-            labelLastClean: 'Last Clean', labelTotalSaved: 'Total Saved',
-            labelCleanMode: 'Clean Mode', subCleanMode: 'File-level vs Entire Folder',
-            labelAutoLaunch: 'Auto Launch', subAutoLaunch: 'Start app at login',
-            labelCurrentUsage: 'Current Usage',
-            // labelPrivacy: 'Improve Accuracy',
-            privacyHint: 'If the value differs from Finder, please enable "Full Disk Access" for FreemixCleanCache in System Settings.',
-            modeFile: 'Files', modeFolder: 'Folder',
-            optEveryMidnight: 'Midnight', optEveryNoon: 'Noon', optEveryMonday: 'Mondays',
-            titleNextRuns: 'Next Schedule:',
-            cleanNowBtn: 'Clean Now',
-            statusReady: 'Ready', statusSaving: 'Syncing...', statusSaved: 'Auto-saved', statusCleaning: 'Scanning...', statusFinished: 'Done',
-            cronInvalid: 'Invalid Cron',
-            system:"system",
-            dark:"dark",
-            light:"light"
+        function updateGlider(wrapperId, value) {
+            const wrapper = document.getElementById(wrapperId);
+            const glider = wrapper.querySelector('.glider');
+            const activeBtn = wrapper.querySelector(`[data-value="${value}"]`) || wrapper.querySelector(`[data-index="${value}"]`) || wrapper.querySelector(`.segment-btn.active`);
+            if (glider && activeBtn) {
+                glider.style.width = activeBtn.offsetWidth + 'px';
+                glider.style.transform = `translateX(${activeBtn.offsetLeft - 3}px)`;
+            }
         }
-    };
 
-    const elements = {
-        title: document.getElementById('title'),
-        labelAutoClean: document.getElementById('labelAutoClean'), subAutoClean: document.getElementById('subAutoClean'),
-        labelNotify: document.getElementById('labelNotify'), subNotify: document.getElementById('subNotify'),
-        labelShowInDock: document.getElementById('labelShowInDock'), subShowInDock: document.getElementById('subShowInDock'),
-        labelInterval: document.getElementById('labelInterval'), subInterval: document.getElementById('subInterval'),
-        labelPath: document.getElementById('labelPath'), changePathBtn: document.getElementById('changePathBtn'),
-        labelCron: document.getElementById('labelCron'), cronHint: document.getElementById('cronHint'),
-        labelLastClean: document.getElementById('labelLastClean'), labelTotalSaved: document.getElementById('labelTotalSaved'),
-        valLastClean: document.getElementById('valLastClean'), valTotalSaved: document.getElementById('valTotalSaved'),
-        labelCleanMode: document.getElementById('labelCleanMode'), subCleanMode: document.getElementById('subCleanMode'),
-        labelAutoLaunch: document.getElementById('labelAutoLaunch'), subAutoLaunch: document.getElementById('subAutoLaunch'),
-        labelCurrentUsage: document.getElementById('labelCurrentUsage'),
-        valCurrentUsage: document.getElementById('valCurrentUsage'),
-        usageProgress: document.getElementById('usageProgress'),
-        btnPrivacy: document.getElementById('btnPrivacy'),
-        modeFile: document.getElementById('modeFile'), modeFolder: document.getElementById('modeFolder'),
-        titleNextRuns: document.getElementById('titleNextRuns'),
-        cleanNowBtn: document.getElementById('cleanNowBtn'), statusMsg: document.getElementById('statusMsg'),
-        autoCleanToggle: document.getElementById('autoCleanToggle'),
-        notifyToggle: document.getElementById('notifyToggle'),
-        autoLaunchToggle: document.getElementById('autoLaunchToggle'),
-        showInDockToggle: document.getElementById('showInDockToggle'),
-        intervalDaysInput: document.getElementById('intervalDays'), cronExpressionInput: document.getElementById('cronExpression'),
-        pathDisplay: document.getElementById('pathDisplay'), cronHelper: document.getElementById('cronHelper'),
-        nextRunsBox: document.getElementById('nextRunsBox'), nextRunsList: document.getElementById('nextRunsList'),
-        system: document.getElementById('system'), dark: document.getElementById('dark'),
-        light: document.getElementById('light'),
-        intervalRow: document.getElementById('intervalRow')
-    };
-
-    let currentLang = 'zh';
-    let currentTheme = 'system';
-    let currentCleanMode = 'file';
-    let isInitializing = true;
-
-    function updateLanguage(lang) {
-        currentLang = lang;
-        const t = i18n[lang];
-        Object.keys(t).forEach(key => { if (elements[key]) elements[key].innerText = t[key]; });
-        updateGlider('langSegment', 'langGlider', lang);
-    }
-
-    function updateGlider(wrapperId, gliderId, value) {
-        const wrapper = document.getElementById(wrapperId);
-        const glider = document.getElementById(gliderId);
-        const activeBtn = wrapper.querySelector(`[data-value="${value}"]`);
-        if (activeBtn) {
-            glider.style.width = activeBtn.offsetWidth + 'px';
-            glider.style.transform = `translateX(${activeBtn.offsetLeft - 2}px)`;
-            wrapper.querySelectorAll('.segment-btn').forEach(btn => btn.classList.remove('active'));
-            activeBtn.classList.add('active');
-        }
-    }
-
-    function applyTheme(setting, isDark) {
-        currentTheme = setting;
-        if (setting === 'dark' || (setting === 'system' && isDark)) {
-            document.body.setAttribute('data-theme', 'dark');
-        } else {
-            document.body.removeAttribute('data-theme');
-        }
-        updateGlider('themeSegment', 'themeGlider', setting);
-    }
-
-    function applyCleanMode(mode) {
-        currentCleanMode = mode;
-        updateGlider('cleanModeSegment', 'cleanModeGlider', mode);
-        // 模式切换时，隐藏或显示阈值行
-        if (elements.intervalRow) {
-            elements.intervalRow.style.display = (mode === 'folder') ? 'none' : 'flex';
-        }
-    }
-
-    ipcRenderer.send('get-settings');
-    ipcRenderer.on('settings-data', (event, data) => {
-        isInitializing = true;
-        elements.autoCleanToggle.checked = data.autoClean;
-        elements.notifyToggle.checked = data.enableNotification !== false;
-        elements.autoLaunchToggle.checked = data.autoLaunch;
-        elements.showInDockToggle.checked = data.showInDock !== false;
-        elements.intervalDaysInput.value = data.intervalDays;
-        elements.cronExpressionInput.value = data.cronExpression;
-        elements.pathDisplay.innerText = data.cachePath;
-        elements.valLastClean.innerText = data.lastCleanTime;
-        elements.valTotalSaved.innerText = data.totalCleanedSize;
-        elements.cronHelper.value = data.cronExpression;
-
-        updateLanguage(data.language);
-        applyTheme(data.theme, data.isDark);
-        applyCleanMode(data.cleanMode || 'file');
-        updateUsage(data.currentDirSize);
-
-        if (data.nextRuns) updateNextRuns(data.nextRuns);
-        setTimeout(() => { isInitializing = false; }, 100);
-    });
-
-    ipcRenderer.on('theme-changed', (e, d) => applyTheme(d.themeSetting, d.isDark));
-    ipcRenderer.on('stats-updated', (e, d) => {
-        elements.valLastClean.innerText = d.lastCleanTime;
-        elements.valTotalSaved.innerText = d.totalCleanedSize;
-        updateUsage(d.currentDirSize);
-    });
-
-    function updateUsage(sizeStr) {
-        console.log("updateUsage", sizeStr);
-        elements.valCurrentUsage.innerText = sizeStr;
-        let bytes = parseSize(sizeStr);
-        let gb = bytes / (1000 * 1000 * 1000);
-        let percent = Math.min((gb / 2) * 100, 100);
-        elements.usageProgress.style.width = percent + '%';
-        if (percent > 80) elements.usageProgress.classList.add('warning');
-        else elements.usageProgress.classList.remove('warning');
-    }
-
-    function parseSize(sizeStr) {
-        const units = { 'B': 1, 'KB': 1000, 'MB': 1000 ** 2, 'GB': 1000 ** 3, 'TB': 1000 ** 4 };
-        const match = sizeStr.match(/^([\d.]+)\s*([A-Z]+)$/i);
-        if (!match) return 0;
-        return parseFloat(match[1]) * (units[match[2].toUpperCase()] || 1);
-    }
-
-    // 定时刷新当前目录占用空间
-    setInterval(() => {
-        ipcRenderer.send('get-current-usage');
-    }, 30000); // 每 30 秒刷新一次
-
-    ipcRenderer.on('current-usage-data', (event, data) => {
-        updateUsage(data.currentDirSize);
-    });
-
-    function triggerAutoSave() {
-        if (isInitializing) return;
-        elements.statusMsg.innerText = i18n[currentLang].statusSaving;
-        ipcRenderer.send('update-settings', {
-            autoClean: elements.autoCleanToggle.checked,
-            enableNotification: elements.notifyToggle.checked,
-            autoLaunch: elements.autoLaunchToggle.checked,
-            showInDock: elements.showInDockToggle.checked,
-            intervalDays: parseInt(elements.intervalDaysInput.value) || 0,
-            cronExpression: elements.cronExpressionInput.value,
-            language: currentLang,
-            theme: currentTheme,
-            cleanMode: currentCleanMode
+        // 页面切换逻辑
+        document.querySelectorAll('#mainTabs .segment-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('#mainTabs .segment-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+                document.getElementById(btn.dataset.page).classList.add('active');
+                updateGlider('mainTabs', btn.dataset.index);
+            });
         });
-    }
 
-    elements.autoLaunchToggle.addEventListener('change', triggerAutoSave);
+        function updateLanguage(lang) {
+            const content = document.getElementById('mainContent');
+            content.style.opacity = '0';
+            
+            setTimeout(() => {
+                currentLang = lang;
+                const t = i18n[lang];
+                
+                // 2. 更新所有带有 ID 的元素文本
+                document.querySelectorAll('[id]').forEach(el => {
+                    if (t[el.id]) {
+                        if (el.tagName === 'INPUT' && el.type === 'text') {
+                            el.placeholder = t[el.id];
+                        } else {
+                            el.innerText = t[el.id];
+                        }
+                    }
+                });
 
-    elements.btnPrivacy.addEventListener('click', () => {
-        alert(i18n[currentLang].privacyHint);
-        ipcRenderer.send('open-privacy-settings');
-    });
+                // 3. 特殊同步
+                elements.tabDashboard.innerText = t.tabDashboard;
+                elements.tabRules.innerText = t.tabRules;
+                elements.tabAutomation.innerText = t.tabAutomation;
+                elements.tabSettings.innerText = t.tabSettings;
 
-    // 分段控件点击
-    document.querySelectorAll('.segment-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const parent = btn.parentElement.id;
-            const val = btn.getAttribute('data-value');
-            if (parent === 'langSegment') updateLanguage(val);
-            else if (parent === 'themeSegment') currentTheme = val;
-            else if (parent === 'cleanModeSegment') applyCleanMode(val);
+                renderCronUI();
+                updateGlider('langSegment', lang);
+                content.style.opacity = '1';
+            }, 150);
+        }
+
+        function updateGlider(wrapperId, value) {
+            const wrapper = document.getElementById(wrapperId);
+            wrapper.querySelectorAll('.segment-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.value === value);
+            });
+        }
+
+        function applyTheme(setting, isDark) {
+            currentTheme = setting;
+            if (setting === 'dark' || (setting === 'system' && isDark)) {
+                document.body.setAttribute('data-theme', 'dark');
+            } else {
+                document.body.removeAttribute('data-theme');
+            }
+            updateGlider('themeSegment', setting);
+        }
+
+        function applyCleanMode(mode) {
+            currentCleanMode = mode;
+            updateGlider('cleanModeSegment', mode);
+            if (elements.intervalRow) {
+                elements.intervalRow.style.display = (mode === 'folder') ? 'none' : 'flex';
+            }
+        }
+
+        // 发送获取配置请求 (从 index.html.bak 恢复)
+        ipcRenderer.send('get-settings');
+        
+        ipcRenderer.on('settings-data', (event, data) => {
+            isInitializing = true;
+            elements.autoCleanToggle.checked = data.autoClean;
+            elements.notifyToggle.checked = data.enableNotification !== false;
+            elements.autoLaunchToggle.checked = data.autoLaunch;
+            elements.showInDockToggle.checked = data.showInDock !== false;
+            elements.intervalDaysInput.value = data.intervalDays;
+            elements.cronExpressionInput.value = data.cronExpression;
+            elements.pathDisplay.innerText = data.cachePath;
+            elements.valLastClean.innerText = data.lastCleanTime || '-';
+            elements.valTotalSaved.innerText = data.totalCleanedSize || '0 B';
+            elements.excludeListInput.value = (data.excludeList || []).join(', ');
+            
+            updateLanguage(data.language);
+            applyTheme(data.theme, data.isDark);
+            applyCleanMode(data.cleanMode || 'file');
+            updateUsage(data.currentDirSize);
+            renderCronUI(data.cronExpression);
+            
+            // 初始化所有 Glider
+            setTimeout(() => {
+                updateGlider('mainTabs', document.querySelector('#mainTabs .segment-btn.active').dataset.index);
+                updateGlider('langSegment', data.language);
+                updateGlider('themeSegment', data.theme);
+                updateGlider('cleanModeSegment', data.cleanMode || 'file');
+            }, 100);
+            
+            if (data.nextRuns) updateNextRuns(data.nextRuns);
+            setTimeout(() => { isInitializing = false; }, 200);
+        });
+
+        ipcRenderer.on('theme-changed', (e, d) => applyTheme(d.themeSetting, d.isDark));
+        ipcRenderer.on('stats-updated', (e, d) => {
+            elements.valLastClean.innerText = d.lastCleanTime;
+            elements.valTotalSaved.innerText = d.totalCleanedSize; // 确保这里显示的是格式化后的字符串，如 "150.5 MB"
+            updateUsage(d.currentDirSize);
+        });
+
+        function updateUsage(sizeStr) {
+            elements.valCurrentUsage.innerText = sizeStr;
+            let bytes = parseSize(sizeStr);
+            let gb = bytes / (1000 * 1000 * 1000);
+            let percent = Math.min((gb / 2) * 100, 100); 
+            elements.usageProgress.style.width = percent + '%';
+        }
+
+        function parseSize(sizeStr) {
+            const units = { 'B': 1, 'KB': 1000, 'MB': 1000 ** 2, 'GB': 1000 ** 3, 'TB': 1000 ** 4 };
+            const match = sizeStr.match(/^([\d.]+)\s*([A-Z]+)$/i);
+            if (!match) return 0;
+            return parseFloat(match[1]) * (units[match[2].toUpperCase()] || 1);
+        }
+
+        setInterval(() => { ipcRenderer.send('get-current-usage'); }, 3000);
+
+        ipcRenderer.on('current-usage-data', (event, data) => { updateUsage(data.currentDirSize); });
+
+        function triggerAutoSave() {
+            if (isInitializing) return;
+            elements.statusMsg.innerText = i18n[currentLang].statusSaving;
+            ipcRenderer.send('update-settings', {
+                autoClean: elements.autoCleanToggle.checked,
+                enableNotification: elements.notifyToggle.checked,
+                autoLaunch: elements.autoLaunchToggle.checked,
+                showInDock: elements.showInDockToggle.checked,
+                excludeList: elements.excludeListInput.value.split(',').map(s => s.trim()).filter(s => s),
+                intervalDays: parseInt(elements.intervalDaysInput.value) || 0,
+                cronExpression: elements.cronExpressionInput.value,
+                language: currentLang,
+                theme: currentTheme,
+                cleanMode: currentCleanMode
+            });
+        }
+
+        elements.autoLaunchToggle.addEventListener('change', triggerAutoSave);
+        elements.autoCleanToggle.addEventListener('change', triggerAutoSave);
+        elements.notifyToggle.addEventListener('change', triggerAutoSave);
+        elements.showInDockToggle.addEventListener('change', triggerAutoSave);
+        elements.intervalDaysInput.addEventListener('input', triggerAutoSave);
+        elements.excludeListInput.addEventListener('change', triggerAutoSave);
+        elements.btnPrivacy.addEventListener('click', () => { ipcRenderer.send('open-privacy-settings'); });
+
+        document.querySelectorAll('.segmented-control:not(#mainTabs) .segment-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const parent = btn.parentElement.id;
+                const val = btn.dataset.value;
+                if (parent === 'langSegment') updateLanguage(val);
+                else if (parent === 'themeSegment') applyTheme(val, false);
+                else if (parent === 'cleanModeSegment') applyCleanMode(val);
+                triggerAutoSave();
+            });
+        });
+
+        function renderCronUI(cron) {
+            const currentCron = cron || elements.cronExpressionInput.value || '*/1 * * * *';
+            const t = i18n[currentLang];
+            const parts = currentCron.split(' ');
+            let type = 'custom';
+            let html = '';
+
+            const wrapField = (label, inputHtml, unit = '') => `
+                <div class="cron-field">
+                    <span class="cron-label">${label}</span>
+                    <div class="cron-input-wrapper">
+                        ${inputHtml}
+                        ${unit ? `<span class="cron-unit">${unit}</span>` : ''}
+                    </div>
+                </div>
+            `;
+
+            if (currentCron.includes('*/') && parts.length === 5) {
+                if (parts[1] === '*' && parts[2] === '*' && parts[3] === '*' && parts[4] === '*') {
+                    type = 'minute';
+                    html = wrapField(t.labelEvery, `<input type="number" id="cronVal1" value="${parts[0].replace('*/', '')}" min="1" max="59">`, t.labelMin);
+                } else if (parts[2] === '*' && parts[3] === '*' && parts[4] === '*') {
+                    type = 'hour';
+                    html = wrapField(t.labelEvery, `<input type="number" id="cronVal1" value="${parts[1].replace('*/', '')}" min="1" max="23">`, t.labelHour);
+                    html += wrapField(t.labelAt, `<input type="number" id="cronVal2" value="${parts[0]}" min="0" max="59">`, t.labelAtMin);
+                }
+            } else if (parts.length === 5 && parts[2] === '*' && parts[3] === '*' && parts[4] === '*') {
+                type = 'day';
+                html = wrapField(t.labelAtTime, `<input type="time" id="cronVal1" value="${parts[1].padStart(2,'0')}:${parts[0].padStart(2,'0')}">`);
+            } else if (parts.length === 5 && parts[2] === '*' && parts[3] === '*' && parts[4] !== '*') {
+                type = 'week';
+                const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                const dayOptions = days.map((d, i) => `<option value="${i}" ${parts[4] == i ? 'selected' : ''}>${d}</option>`).join('');
+                html = wrapField(t.labelOnWeek, `<select id="cronVal2">${dayOptions}</select>`);
+                html += wrapField(t.labelAt, `<input type="time" id="cronVal1" value="${parts[1].padStart(2,'0')}:${parts[0].padStart(2,'0')}">`);
+            }
+
+            if (type === 'custom' || !html) {
+                type = 'custom';
+                html = wrapField('Cron', `<input type="text" id="cronVal1" value="${currentCron}">`);
+            }
+
+            // 更新选项文字
+            elements.cronTypeSelect.innerHTML = `
+                <option value="minute">${t.typeMinute}</option>
+                <option value="hour">${t.typeHour}</option>
+                <option value="day">${t.typeDay}</option>
+                <option value="week">${t.typeWeek}</option>
+                <option value="custom">${t.typeCustom}</option>
+            `;
+
+            elements.cronTypeSelect.value = type;
+            elements.cronDynamicConfig.innerHTML = html;
+            
+            // 为网格布局调整容器
+            elements.cronDynamicConfig.style.display = 'grid';
+            elements.cronDynamicConfig.style.gridTemplateColumns = (type === 'hour' || type === 'week') ? '1fr 1fr' : '1fr';
+            
+            elements.cronDynamicConfig.querySelectorAll('input, select').forEach(el => {
+                el.addEventListener('input', buildCronFromUI);
+                el.addEventListener('change', buildCronFromUI);
+            });
+            ipcRenderer.send('preview-cron', currentCron.replace(/\?/g, '*'));
+        }
+
+        function buildCronFromUI() {
+            const type = elements.cronTypeSelect.value;
+            let cron = '';
+            if (type === 'minute') {
+                cron = `*/${document.getElementById('cronVal1').value || '1'} * * * *`;
+            } else if (type === 'hour') {
+                cron = `${document.getElementById('cronVal2').value || '0'} */${document.getElementById('cronVal1').value || '1'} * * *`;
+            } else if (type === 'day') {
+                const [h, m] = (document.getElementById('cronVal1').value || '00:00').split(':');
+                cron = `${parseInt(m)} ${parseInt(h)} * * *`;
+            } else if (type === 'week') {
+                const [h, m] = (document.getElementById('cronVal1').value || '00:00').split(':');
+                cron = `${parseInt(m)} ${parseInt(h)} * * ${document.getElementById('cronVal2').value}`;
+            } else {
+                cron = document.getElementById('cronVal1').value;
+            }
+            elements.cronExpressionInput.value = cron;
+            ipcRenderer.send('preview-cron', cron.replace(/\?/g, '*'));
             triggerAutoSave();
-        });
-    });
-
-    elements.autoCleanToggle.addEventListener('change', triggerAutoSave);
-    elements.notifyToggle.addEventListener('change', triggerAutoSave);
-    elements.showInDockToggle.addEventListener('change', triggerAutoSave);
-    elements.intervalDaysInput.addEventListener('input', triggerAutoSave);
-    elements.cronExpressionInput.addEventListener('input', (e) => {
-        ipcRenderer.send('preview-cron', e.target.value);
-        triggerAutoSave();
-    });
-    elements.cronHelper.addEventListener('change', (e) => {
-        elements.cronExpressionInput.value = e.target.value;
-        ipcRenderer.send('preview-cron', e.target.value);
-        triggerAutoSave();
-    });
-
-    ipcRenderer.on('cron-preview-data', (event, data) => {
-        if (data.success) updateNextRuns(data.nextRuns);
-        else {
-            elements.nextRunsBox.style.display = 'block';
-            elements.nextRunsList.innerHTML = `<div style="color: var(--danger-color)">${i18n[currentLang].cronInvalid}</div>`;
         }
-    });
 
-    function updateNextRuns(runs) {
-        elements.nextRunsBox.style.display = runs.length ? 'block' : 'none';
-        elements.nextRunsList.innerHTML = runs.map(r => `<div class="cron-item">${r}</div>`).join('');
-    }
+        elements.cronTypeSelect.addEventListener('change', () => {
+            const type = elements.cronTypeSelect.value;
+            let d = '*/1 * * * *';
+            if (type === 'hour') d = '0 */1 * * *';
+            else if (type === 'day') d = '0 0 * * *';
+            else if (type === 'week') d = '0 0 * * 1';
+            renderCronUI(d);
+            buildCronFromUI();
+        });
 
-    ipcRenderer.on('settings-updated', () => {
-        elements.statusMsg.innerText = i18n[currentLang].statusSaved;
-        elements.statusMsg.classList.add('status-saved');
-        setTimeout(() => {
-            elements.statusMsg.innerText = i18n[currentLang].statusReady;
-            elements.statusMsg.classList.remove('status-saved');
-        }, 2000);
-    });
+        ipcRenderer.on('cron-preview-data', (e, d) => {
+            if (d.success) updateNextRuns(d.nextRuns);
+            else {
+                elements.nextRunsBox.style.display = 'block';
+                elements.nextRunsList.innerHTML = `<span style="color:var(--system-red)">${i18n[currentLang].cronInvalid}</span>`;
+            }
+        });
 
-    elements.changePathBtn.addEventListener('click', () => ipcRenderer.send('select-path'));
-    ipcRenderer.on('path-selected', (e, p) => { elements.pathDisplay.innerText = p; triggerAutoSave(); });
+        function updateNextRuns(runs) {
+            elements.nextRunsBox.style.display = runs.length ? 'block' : 'none';
+            elements.nextRunsList.innerHTML = runs.map(r => `
+                <div class="time-capsule-item">
+                    <div class="pulse-dot"></div>
+                    <span class="time-capsule-time">${r}</span>
+                </div>
+            `).join('');
+        }
 
-    elements.cleanNowBtn.addEventListener('click', () => {
-        elements.statusMsg.innerText = i18n[currentLang].statusCleaning;
-        ipcRenderer.send('manual-clean');
-    });
+        ipcRenderer.on('settings-updated', () => {
+            elements.statusMsg.innerText = i18n[currentLang].statusSaved;
+            setTimeout(() => { elements.statusMsg.innerText = i18n[currentLang].statusReady; }, 2000);
+        });
 
-    ipcRenderer.on('clean-finished', () => {
-        elements.statusMsg.innerText = i18n[currentLang].statusFinished;
-        setTimeout(() => elements.statusMsg.innerText = i18n[currentLang].statusReady, 2000);
-    });
-</script>
+        elements.changePathBtn.addEventListener('click', () => ipcRenderer.send('select-path'));
+        ipcRenderer.on('path-selected', (e, p) => { elements.pathDisplay.innerText = p; triggerAutoSave(); });
+        elements.cleanNowBtn.addEventListener('click', () => {
+            elements.statusMsg.innerText = i18n[currentLang].statusCleaning;
+            ipcRenderer.send('manual-clean');
+        });
+        ipcRenderer.on('clean-finished', (e, data) => {
+            elements.statusMsg.innerText = i18n[currentLang].statusFinished;
+            // 立即强制刷新一次累计统计，确保通知栏显示的大小和看板一致
+            if (data.totalCleanedSize) {
+                elements.valTotalSaved.innerText = data.totalCleanedSize;
+            }
+            if (data.lastCleanTime) {
+                elements.valLastClean.innerText = data.lastCleanTime;
+            }
+            setTimeout(() => { elements.statusMsg.innerText = i18n[currentLang].statusReady; }, 3000);
+        });
+    </script>
 </body>
 </html>
