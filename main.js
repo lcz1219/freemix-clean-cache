@@ -63,12 +63,15 @@ function sendThemeStatus() {
 function createWindow() {
   if (mainWindow) {
     mainWindow.show();
+    if (process.platform === 'darwin') {
+      app.dock.show();
+    }
     return;
   }
 
   mainWindow = new BrowserWindow({
-    width: 650,
-    height: 980,
+    width: 950,
+    height: 680,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
@@ -85,6 +88,9 @@ function createWindow() {
   
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+    if (process.platform === 'darwin') {
+      app.dock.show();
+    }
     // 发送初始主题状态
     sendThemeStatus();
   });
@@ -94,11 +100,14 @@ function createWindow() {
     sendThemeStatus();
   });
 
-  // 修复：点击关闭按钮时隐藏窗口，而不是销毁窗口
+  // 修改：点击关闭按钮时隐藏窗口并隐藏 Dock 图标
   mainWindow.on('close', (event) => {
     if (!app.isQuiting) {
       event.preventDefault();
       mainWindow.hide();
+      if (process.platform === 'darwin') {
+        app.dock.hide();
+      }
     }
   });
 
@@ -285,7 +294,7 @@ async function cleanCache() {
     // 更新统计数据
     if (cleanedCount > 0) {
       const totalSize = (store.get('totalCleanedSize', 0) || 0) + cleanedSize;
-      const cleanTime = new Date().toLocaleString();
+      const cleanTime = getFormattedNow();
       store.set('totalCleanedSize', totalSize);
       store.set('lastCleanTime', cleanTime);
 
@@ -381,6 +390,9 @@ app.whenReady().then(() => {
       createWindow();
     } else {
       mainWindow.show();
+      if (process.platform === 'darwin') {
+        app.dock.show();
+      }
     }
   });
 });
@@ -394,7 +406,13 @@ function setupTray() {
   try {
     tray = new Tray(iconPath);
     const contextMenu = Menu.buildFromTemplate([
-      { label: 'Open FreemixCleanCache', click: () => mainWindow.show() },
+      { label: 'Open FreemixCleanCache', click: () => {
+          mainWindow.show();
+          if (process.platform === 'darwin') {
+            app.dock.show();
+          }
+        } 
+      },
       { type: 'separator' },
       { label: 'Quit', click: () => {
           app.isQuiting = true;
@@ -407,6 +425,9 @@ function setupTray() {
     
     tray.on('click', () => {
       mainWindow.show();
+      if (process.platform === 'darwin') {
+        app.dock.show();
+      }
     });
   } catch (e) {
     console.error('Failed to create Tray:', e.message);
@@ -431,11 +452,20 @@ const formatDateTime = (date) => {
 function updateDockVisibility() {
   const showInDock = store.get('showInDock', DEFAULT_SETTINGS.showInDock);
   if (process.platform === 'darwin') {
-    if (showInDock) {
-      app.dock.show();
-    } else {
-      app.dock.hide();
-    }
+    // 强制使用异步确保在 UI 事件处理后执行
+    setTimeout(() => {
+      try {
+        if (showInDock) {
+          app.dock.show();
+        } else {
+          // 只有在有窗口显示时，hide 才需要配合 show/hide 逻辑
+          // 但在 Electron 中，直接调用 hide 应该总是尝试隐藏图标
+          app.dock.hide();
+        }
+      } catch (e) {
+        console.error('Failed to update dock visibility:', e);
+      }
+    }, 300);
   }
 }
 
